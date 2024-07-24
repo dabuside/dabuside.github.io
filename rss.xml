@@ -61,7 +61,7 @@ const img = new URL(&apos;./image.png&apos;, import.meta.url)
 &lt;p&gt;静态资源引用声明语句必须写在顶端。即script加上马上运行的地方，不能写在setup函数等延迟执行的地方。因为&lt;code&gt;document.currentScript&lt;/code&gt;对象只在对应脚本正在解析执行的时候有效。&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ul&gt;
-</content:encoded></item><item><title>Babel 编译的 loose 模式简述</title><link>https://fuwari.vercel.app/posts/babel_loose_mode/</link><guid isPermaLink="true">https://fuwari.vercel.app/posts/babel_loose_mode/</guid><description>mnist-broswer-pure</description><pubDate>Wed, 20 Jan 2021 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+</content:encoded></item><item><title>Babel 编译的 loose 模式简述</title><link>https://fuwari.vercel.app/posts/babel_loose_mode/</link><guid isPermaLink="true">https://fuwari.vercel.app/posts/babel_loose_mode/</guid><description>babel loose mode</description><pubDate>Wed, 20 Jan 2021 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
 &lt;h2&gt;前言&lt;/h2&gt;
 &lt;p&gt;我们都知道，&lt;code&gt;babel&lt;/code&gt; 可以将 &lt;code&gt;es6&lt;/code&gt; 的代码转换为 &lt;code&gt;es5&lt;/code&gt; 的代码。其中&lt;code&gt;presets&lt;/code&gt; 有两种模式可以选择。&lt;/p&gt;
 &lt;p&gt;将代码转换为最接近 &lt;code&gt;es6&lt;/code&gt; 规范的正常模式 &lt;code&gt;loose: false&lt;/code&gt;，他能保证转换前后的语义是一直的

@@ -1,7 +1,7 @@
 ---
 title: Babel 编译的 loose 模式简述
 published: 2021-01-20
-description: "mnist-broswer-pure"
+description: "babel loose mode"
 image: ""
 tags: ["Babel"]
 category: "Tech"

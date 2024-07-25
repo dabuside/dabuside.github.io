@@ -14,14 +14,18 @@ draft: false
 
 我们都知道，`babel` 可以将 `es6` 的代码转换为 `es5` 的代码。其中`presets` 有两种模式可以选择。
 
-将代码转换为最接近 `es6` 规范的正常模式 `loose: false`，他能保证转换前后的语义是一直的
-将代码转换为更简单的 `es5` 模式 `loose: true`
+- 将代码转换为最接近 `es6` 规范的正常模式 `loose: false`，他能保证转换前后的语义是 99% 一致的
+- 将代码转换为更简单的 `es5` 模式 `loose: true`
 
 我们项目用的是 `loose: true`
 
 我们举一个具体的例子
 
-下面 `es6` 的 `class` 语法，
+## ES6 原生模式
+
+下面 `es6` 的 `class` 语法
+
+> 运行结果为控制台输出`x,y`
 
 ```
 class Point {
@@ -38,7 +42,11 @@ const point = new Point(1,2);
 //es6规范规定，class上面的方法是不可枚举的
 for( let i in point ) { console.log(i) } //x,y
 ```
-如果宽松模式 `loose:true` 模式转换的代码，是这样
+
+## 宽松模式
+如果宽松模式 `loose:true` 模式转换的代码
+
+> 运行结果为控制台输出`x,y,toString`
 
 ```
 var Point = /*#__PURE__*/function () {
@@ -48,19 +56,22 @@ var Point = /*#__PURE__*/function () {
     this.x = x;
     this.y = y;
   }
-
   var _proto = Point.prototype;
-
   _proto.toString = function toString() {
     return "(" + this.x + ", " + this.y + ")";
   };
-
   return Point;
 }();
-for( var i in point ) { console.log(i) } //x,y,toString
+var point = new Point(1, 2);
+
+for (var i in point) {
+  console.log(i);
+}
 ```
+## 严格模式
 
 如果是严格模式 `loose:false`
+> 运行结果为控制台输出`x,y`
 ```
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 require("core-js/modules/es.symbol.js");
@@ -96,9 +107,12 @@ var Point = /*#__PURE__*/function () {
   }]);
 }();
 var point = new Point(1, 2);
+for (var i in point) {
+  console.log(i);
+}
 ```
 
-[repl-link](https://babeljs.io/repl#?browsers=ie%2011&build=&builtIns=usage&corejs=3.21&spec=false&loose=false&code_lz=MYGwhgzhAEAKD2BLAdgF2gbwFDV9Y8yEqATgK7CrwkAUAHgDTQCeAlJjnl6gBaIQA6OtAC80OgG5OXXL34DmollK4BfadCoBlUigDmNdthl4SAU1RkSyaAAMaAEgxzBdVUycuFq1rZV51dQIidAAHJDQlZDMAdzgI1BoARgYAJlYJIA&debug=false&forceAllTransforms=false&modules=false&shippedProposals=false&evaluate=false&fileSize=false&timeTravel=false&sourceType=script&lineWrap=false&presets=env%2Cstage-3&prettier=false&targets=&version=7.24.10&externalPlugins=%40babel%2Fplugin-transform-parameters%407.23.3&assumptions=%7B%7D)
+[repl-link](https://babeljs.io/repl#?browsers=ie%2011&build=&builtIns=usage&corejs=3.21&spec=false&loose=false&code_lz=MYGwhgzhAEAKD2BLAdgF2gbwFDV9Y8yEqATgK7CrwkAUAHgDTQCeAlJjnl6gBaIQA6OtAC80OgG5OXXL34DmollK4BfadCoBlUigDmNdthl4SAU1RkSyaAAMaAEgxzBdVUycuFq1rZV51dQIidAAHJDQlZDMAdzgI1BoARgYAJlYpLAAzahpoEAtoRCKbcJR0I3xCCHgCgRB4A0R2VWggA&debug=false&forceAllTransforms=false&modules=false&shippedProposals=false&evaluate=false&fileSize=false&timeTravel=false&sourceType=script&lineWrap=false&presets=env%2Cstage-3&prettier=false&targets=&version=7.24.10&externalPlugins=%40babel%2Fplugin-transform-parameters%407.23.3&assumptions=%7B%7D)
 
 我们可以观察到，宽松模式产生了比较简单的 `es5` 代码，但是和规范定义有些差别。正常模式则会将这些方法定义翻译为 `Object.defineProperty` ，并设置成不可枚举，和直接运行 `es6` 代码得到相同的结果。
 

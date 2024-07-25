@@ -64,11 +64,17 @@ const img = new URL(&apos;./image.png&apos;, import.meta.url)
 </content:encoded></item><item><title>Babel 编译的 loose 模式简述</title><link>https://fuwari.vercel.app/posts/babel_loose_mode/</link><guid isPermaLink="true">https://fuwari.vercel.app/posts/babel_loose_mode/</guid><description>babel loose mode</description><pubDate>Wed, 20 Jan 2021 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
 &lt;h2&gt;前言&lt;/h2&gt;
 &lt;p&gt;我们都知道，&lt;code&gt;babel&lt;/code&gt; 可以将 &lt;code&gt;es6&lt;/code&gt; 的代码转换为 &lt;code&gt;es5&lt;/code&gt; 的代码。其中&lt;code&gt;presets&lt;/code&gt; 有两种模式可以选择。&lt;/p&gt;
-&lt;p&gt;将代码转换为最接近 &lt;code&gt;es6&lt;/code&gt; 规范的正常模式 &lt;code&gt;loose: false&lt;/code&gt;，他能保证转换前后的语义是一直的
-将代码转换为更简单的 &lt;code&gt;es5&lt;/code&gt; 模式 &lt;code&gt;loose: true&lt;/code&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;将代码转换为最接近 &lt;code&gt;es6&lt;/code&gt; 规范的正常模式 &lt;code&gt;loose: false&lt;/code&gt;，他能保证转换前后的语义是 99% 一致的&lt;/li&gt;
+&lt;li&gt;将代码转换为更简单的 &lt;code&gt;es5&lt;/code&gt; 模式 &lt;code&gt;loose: true&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
 &lt;p&gt;我们项目用的是 &lt;code&gt;loose: true&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;我们举一个具体的例子&lt;/p&gt;
-&lt;p&gt;下面 &lt;code&gt;es6&lt;/code&gt; 的 &lt;code&gt;class&lt;/code&gt; 语法，&lt;/p&gt;
+&lt;h2&gt;ES6 原生模式&lt;/h2&gt;
+&lt;p&gt;下面 &lt;code&gt;es6&lt;/code&gt; 的 &lt;code&gt;class&lt;/code&gt; 语法&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;运行结果为控制台输出&lt;code&gt;x,y&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
 &lt;pre&gt;&lt;code&gt;class Point {
     constructor(x, y) {
         this.x = x;
@@ -83,7 +89,11 @@ const point = new Point(1,2);
 //es6规范规定，class上面的方法是不可枚举的
 for( let i in point ) { console.log(i) } //x,y
 &lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;如果宽松模式 &lt;code&gt;loose:true&lt;/code&gt; 模式转换的代码，是这样&lt;/p&gt;
+&lt;h2&gt;宽松模式&lt;/h2&gt;
+&lt;p&gt;如果宽松模式 &lt;code&gt;loose:true&lt;/code&gt; 模式转换的代码&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;运行结果为控制台输出&lt;code&gt;x,y,toString&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
 &lt;pre&gt;&lt;code&gt;var Point = /*#__PURE__*/function () {
   &quot;use strict&quot;;
 
@@ -91,18 +101,23 @@ for( let i in point ) { console.log(i) } //x,y
     this.x = x;
     this.y = y;
   }
-
   var _proto = Point.prototype;
-
   _proto.toString = function toString() {
     return &quot;(&quot; + this.x + &quot;, &quot; + this.y + &quot;)&quot;;
   };
-
   return Point;
 }();
-for( var i in point ) { console.log(i) } //x,y,toString
+var point = new Point(1, 2);
+
+for (var i in point) {
+  console.log(i);
+}
 &lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;严格模式&lt;/h2&gt;
 &lt;p&gt;如果是严格模式 &lt;code&gt;loose:false&lt;/code&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;运行结果为控制台输出&lt;code&gt;x,y&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
 &lt;pre&gt;&lt;code&gt;function _typeof(o) { &quot;@babel/helpers - typeof&quot;; return _typeof = &quot;function&quot; == typeof Symbol &amp;amp;&amp;amp; &quot;symbol&quot; == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o &amp;amp;&amp;amp; &quot;function&quot; == typeof Symbol &amp;amp;&amp;amp; o.constructor === Symbol &amp;amp;&amp;amp; o !== Symbol.prototype ? &quot;symbol&quot; : typeof o; }, _typeof(o); }
 require(&quot;core-js/modules/es.symbol.js&quot;);
 require(&quot;core-js/modules/es.symbol.description.js&quot;);
@@ -137,8 +152,11 @@ var Point = /*#__PURE__*/function () {
   }]);
 }();
 var point = new Point(1, 2);
+for (var i in point) {
+  console.log(i);
+}
 &lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;a href=&quot;https://babeljs.io/repl#?browsers=ie%2011&amp;amp;build=&amp;amp;builtIns=usage&amp;amp;corejs=3.21&amp;amp;spec=false&amp;amp;loose=false&amp;amp;code_lz=MYGwhgzhAEAKD2BLAdgF2gbwFDV9Y8yEqATgK7CrwkAUAHgDTQCeAlJjnl6gBaIQA6OtAC80OgG5OXXL34DmollK4BfadCoBlUigDmNdthl4SAU1RkSyaAAMaAEgxzBdVUycuFq1rZV51dQIidAAHJDQlZDMAdzgI1BoARgYAJlYJIA&amp;amp;debug=false&amp;amp;forceAllTransforms=false&amp;amp;modules=false&amp;amp;shippedProposals=false&amp;amp;evaluate=false&amp;amp;fileSize=false&amp;amp;timeTravel=false&amp;amp;sourceType=script&amp;amp;lineWrap=false&amp;amp;presets=env%2Cstage-3&amp;amp;prettier=false&amp;amp;targets=&amp;amp;version=7.24.10&amp;amp;externalPlugins=%40babel%2Fplugin-transform-parameters%407.23.3&amp;amp;assumptions=%7B%7D&quot;&gt;repl-link&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a href=&quot;https://babeljs.io/repl#?browsers=ie%2011&amp;amp;build=&amp;amp;builtIns=usage&amp;amp;corejs=3.21&amp;amp;spec=false&amp;amp;loose=false&amp;amp;code_lz=MYGwhgzhAEAKD2BLAdgF2gbwFDV9Y8yEqATgK7CrwkAUAHgDTQCeAlJjnl6gBaIQA6OtAC80OgG5OXXL34DmollK4BfadCoBlUigDmNdthl4SAU1RkSyaAAMaAEgxzBdVUycuFq1rZV51dQIidAAHJDQlZDMAdzgI1BoARgYAJlYpLAAzahpoEAtoRCKbcJR0I3xCCHgCgRB4A0R2VWggA&amp;amp;debug=false&amp;amp;forceAllTransforms=false&amp;amp;modules=false&amp;amp;shippedProposals=false&amp;amp;evaluate=false&amp;amp;fileSize=false&amp;amp;timeTravel=false&amp;amp;sourceType=script&amp;amp;lineWrap=false&amp;amp;presets=env%2Cstage-3&amp;amp;prettier=false&amp;amp;targets=&amp;amp;version=7.24.10&amp;amp;externalPlugins=%40babel%2Fplugin-transform-parameters%407.23.3&amp;amp;assumptions=%7B%7D&quot;&gt;repl-link&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;我们可以观察到，宽松模式产生了比较简单的 &lt;code&gt;es5&lt;/code&gt; 代码，但是和规范定义有些差别。正常模式则会将这些方法定义翻译为 &lt;code&gt;Object.defineProperty&lt;/code&gt; ，并设置成不可枚举，和直接运行 &lt;code&gt;es6&lt;/code&gt; 代码得到相同的结果。&lt;/p&gt;
 &lt;h2&gt;总结&lt;/h2&gt;
 &lt;ul&gt;

@@ -1,79 +1,60 @@
 ---
-import GlobalStyles from "@components/GlobalStyles.astro";
-import '@fontsource/roboto/400.css';
-import '@fontsource/roboto/500.css';
-import '@fontsource/roboto/700.css';
-import ImageWrapper from "@components/misc/ImageWrapper.astro";
+import GlobalStyles from '@components/GlobalStyles.astro'
+import '@fontsource/roboto/400.css'
+import '@fontsource/roboto/500.css'
+import '@fontsource/roboto/700.css'
+import ImageWrapper from '@components/misc/ImageWrapper.astro'
 
-import {pathsEqual} from "@utils/url-utils";
-import ConfigCarrier from "@components/ConfigCarrier.astro";
-import {profileConfig, siteConfig} from "@/config";
-import {Favicon} from "../types/config";
-import {defaultFavicons} from "../constants/icon";
-import {LIGHT_MODE, DARK_MODE, AUTO_MODE, DEFAULT_THEME} from "../constants/constants";
-import {url} from "../utils/url-utils";
+import { profileConfig, siteConfig } from '@/config'
+import ConfigCarrier from '@components/ConfigCarrier.astro'
+import { pathsEqual } from '@utils/url-utils'
+import {
+  AUTO_MODE,
+  DARK_MODE,
+  DEFAULT_THEME,
+  LIGHT_MODE,
+} from '../constants/constants'
+import { defaultFavicons } from '../constants/icon'
+import type { Favicon } from '../types/config'
+import { url } from '../utils/url-utils'
 
 interface Props {
-	title: string;
-	banner: string;
-	description?: string;
+  title?: string
+  banner?: string
+  description?: string
 }
 
-let { title, banner, description } = Astro.props;
+let { title, banner, description } = Astro.props
 
-const isHomePage = pathsEqual(Astro.url.pathname, '/');
-
-const testPathName = Astro.url.pathname;
-
-const anim = {
-	old: {
-		name: 'fadeIn',
-		duration: '4s',
-		easing: 'linear',
-		fillMode: 'forwards',
-		mixBlendMode: 'normal',
-	},
-	new: {
-		name: 'fadeOut',
-		duration: '4s',
-		easing: 'linear',
-		fillMode: 'backwards',
-		mixBlendMode: 'normal',
-	}
-};
-
-const myFade = {
-	forwards: anim,
-	backwards: anim,
-};
+const isHomePage = pathsEqual(Astro.url.pathname, '/')
 
 // defines global css variables
 // why doing this in Layout instead of GlobalStyles: https://github.com/withastro/astro/issues/6728#issuecomment-1502203757
-const configHue = siteConfig.themeColor.hue;
+const configHue = siteConfig.themeColor.hue
 if (!banner || typeof banner !== 'string' || banner.trim() === '') {
-	banner = siteConfig.banner.src;
+  banner = siteConfig.banner.src
 }
 
 // TODO don't use post cover as banner for now
-banner = siteConfig.banner.src;
+banner = siteConfig.banner.src
 
-const enableBanner = siteConfig.banner.enable;
+const enableBanner = siteConfig.banner.enable
 
-let pageTitle;
+let pageTitle: string
 if (title) {
-	pageTitle = `${title} - ${siteConfig.title}`;
+  pageTitle = `${title} - ${siteConfig.title}`
 } else {
-	pageTitle = `${siteConfig.title} - ${siteConfig.subtitle}`;
+  pageTitle = `${siteConfig.title} - ${siteConfig.subtitle}`
 }
 
-const favicons: Favicon[] = siteConfig.favicon.length > 0 ? siteConfig.favicon : defaultFavicons
+const favicons: Favicon[] =
+  siteConfig.favicon.length > 0 ? siteConfig.favicon : defaultFavicons
 
 const siteLang = siteConfig.lang.replace('_', '-')
-
 ---
 
 <!DOCTYPE html>
-<html lang={siteLang} isHome={isHomePage} pathname={testPathName} class="bg-[var(--page-bg)] transition text-[14px] md:text-[16px]">
+<html lang={siteLang} data-isHome={String(isHomePage)} class="bg-[var(--page-bg)] transition text-[14px] md:text-[16px]">
 	<head>
 
 		<title>{pageTitle}</title>
@@ -102,7 +83,7 @@ const siteLang = siteConfig.lang.replace('_', '-')
 			/>
 		))}
 		<!-- Set the theme before the page is rendered to avoid a flash -->
-		<script define:vars={{DEFAULT_THEME: DEFAULT_THEME, LIGHT_MODE: LIGHT_MODE, DARK_MODE: DARK_MODE, AUTO_MODE: AUTO_MODE}}>
+		<script is:inline define:vars={{DEFAULT_THEME: DEFAULT_THEME, LIGHT_MODE: LIGHT_MODE, DARK_MODE: DARK_MODE, AUTO_MODE: AUTO_MODE}}>
 			const theme = localStorage.getItem('theme') || DEFAULT_THEME;
 			switch (theme) {
 				case LIGHT_MODE:
@@ -180,9 +161,9 @@ const siteLang = siteConfig.lang.replace('_', '-')
 import 'overlayscrollbars/overlayscrollbars.css';
 import {
 	OverlayScrollbars,
-	ScrollbarsHidingPlugin,
-	SizeObserverPlugin,
-	ClickScrollPlugin
+	// ScrollbarsHidingPlugin,
+	// SizeObserverPlugin,
+	// ClickScrollPlugin
 } from 'overlayscrollbars';
 import {getHue, getStoredTheme, setHue, setTheme} from "../utils/setting-utils";
 
@@ -202,6 +183,7 @@ import {getHue, getStoredTheme, setHue, setTheme} from "../utils/setting-utils";
 /* TODO This is a temporary solution for style flicker issue when the transition is activated */
 /* issue link: https://github.com/withastro/astro/issues/8711, the solution get from here too */
 /* update: fixed in Astro 3.2.4 */
+/*
 function disableAnimation() {
 	const css = document.createElement('style')
 	css.appendChild(
@@ -227,18 +209,20 @@ function disableAnimation() {
 		}, 1)
 	}
 }
+*/
 
 function setClickOutsideToClose(panel: string, ignores: string[]) {
 	document.addEventListener("click", event => {
 		let panelDom = document.getElementById(panel);
 		let tDom = event.target;
+		if (!(tDom instanceof Node)) return;		// Ensure the event target is an HTML Node
 		for (let ig of ignores) {
 			let ie = document.getElementById(ig)
 			if (ie == tDom || (ie?.contains(tDom))) {
 				return;
 			}
 		}
-		panelDom.classList.add("float-panel-closed");
+		panelDom!.classList.add("float-panel-closed");
 	});
 }
 setClickOutsideToClose("display-setting", ["display-setting", "display-settings-switch"])
@@ -257,7 +241,8 @@ function loadHue() {
 
 function setBannerHeight() {
 	const banner = document.getElementById('banner-wrapper');
-	if (document.documentElement.hasAttribute('isHome')) {
+	if (!banner) return
+	if (document.documentElement.dataset.isHome === "true") {
 		banner.classList.remove('banner-else');
 		banner.classList.add('banner-home');
 	} else {
@@ -267,11 +252,13 @@ function setBannerHeight() {
 }
 
 function initCustomScrollbar() {
+	const bodyElement = document.querySelector('body');
+	if (!bodyElement) return;
 	OverlayScrollbars(
 		// docs say that a initialization to the body element would affect native functionality like window.scrollTo
 		// but just leave it here for now
 		{
-			target: document.querySelector('body'),
+			target: bodyElement,
 			cancel: {
 				nativeScrollbarsOverlaid: true,    // don't initialize the overlay scrollbar if there is a native one
 			}
@@ -329,7 +316,7 @@ const setup = () => {
 	})
 	window.swup.hooks.on('content:replace', initCustomScrollbar)
 }
-if (window.swup.hooks) {
+if (window.swup) {
 	setup()
 } else {
 	document.addEventListener('swup:enable', setup)

@@ -1,238 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>dabuside</title><description>blog</description><link>https://dabuside.github.io/</link><language>en</language><item><title>如何处理 npm 包中的静态资源</title><link>https://dabuside.github.io/posts/asset_in_npm_package/</link><guid isPermaLink="true">https://dabuside.github.io/posts/asset_in_npm_package/</guid><description>ship assets in a npm package</description><pubDate>Sat, 01 Apr 2023 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
-&lt;h2&gt;背景&lt;/h2&gt;
-&lt;p&gt;:::note
-该场景与如下 issue 是同一个问题&lt;/p&gt;
-&lt;p&gt;https://github.com/webpack/webpack/issues/7353
-:::&lt;/p&gt;
-&lt;p&gt;大屏项目需要运行时远程加载业务组件，其中业务组件 npm 包涉及一些静态资源，如背景图，字体文件。之前的处理方式是，图片，字体打包成 base64 到业务组件的 js 中。&lt;/p&gt;
-&lt;p&gt;一般情况下，组件内引用字体、图片等资源，打包为 js 文件时，直接导出资源的话，生成的 js 代码是将静态资源以相对路径的方式引用，所有的静态资源会存放到相对路径对应的文件夹中。&lt;/p&gt;
-&lt;p&gt;这样做存在的问题是，组件打包后 js 中的相对路径是写死的，每个项目的静态资源存放路径又不一样，一旦项目的静态资源路径和组件 js 中的路径不一样，资源引用就失败了。&lt;/p&gt;
-&lt;p&gt;我们在构建业务组件库 npm 包的时候，需要考虑如何处理这些静态资源。&lt;/p&gt;
-&lt;p&gt;如下图中基础环状饼图为远程加载的业务组件，其中的蓝色背景图即为业务组件饼图所需的静态图片资源。
-&lt;img src=&quot;demo.png&quot; alt=&quot;demo&quot; /&gt;&lt;/p&gt;
-&lt;h2&gt;业界方案&lt;/h2&gt;
-&lt;p&gt;目前业界对 npm 包中静态资源的处理一般为两种&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;所有静态资源打包成 base64 放入 js 文件中&lt;/li&gt;
-&lt;li&gt;让用户自行决定如何引用静态资源&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;他们的缺陷也都很明显&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;静态资源转 base64 后体积会大30%。且需要图片+组件渲染代码资源一起下载后，才能渲染。效果不如先加载组件渲染，后请求图片来的丝滑。&lt;/li&gt;
-&lt;li&gt;如 idux 的 svg 引用，需要让用户手动拷贝 svg 图片到静态资源文件夹下，再到代码中设置图标的加载函数。如果遇到业务组件库更新频繁的情况，操作上比较麻烦。&lt;/li&gt;
-&lt;li&gt;业务组件后续会支持外部导入。外部导入的业务组件的静态资源可能和内部业务组件静态资源重名。&lt;/li&gt;
-&lt;li&gt;业务组件的代码，在业务组件的目录内，业务组件的图片放在平台侧的静态文件夹下，等于在两个库分别管理图片和代码，版本管理不清晰，也容易误操作。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;我的方案&lt;/h2&gt;
-&lt;p&gt;使用&lt;code&gt;import.meta.url + new URL()&lt;/code&gt;去标记资源相对位置&lt;/p&gt;
-&lt;p&gt;import.meta是&lt;strong&gt;ES2020&lt;/strong&gt;的新规范，import.meta对象提供模块加载相关的元数据。如该模块从哪里加载的。&lt;/p&gt;
-&lt;p&gt;假设组件A的组件目录结构如下&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;componentA/
-├─ index.js
-├─ img.png
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;其中，index.js的代码如下&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;//若index.js从 ui.com/bigscreen/static/componentA/index.js加载，那么import.meta.url就是这个路径
-//通过new URL拼装，可以实现相对路径指向
-//img = ui.com/bigscreen/static/componentA/img.png
-const img = new URL(&apos;./image.png&apos;, import.meta.url)
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;上述一行代码即实现了从资源相对路径指向。&lt;/p&gt;
-&lt;p&gt;这个方案比上述两个业界常见方案的优点是&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;组件文件和图片文件放在一起管理，比较清晰&lt;/li&gt;
-&lt;li&gt;业务方使用组件，拷贝资源到静态资源文件夹&lt;/li&gt;
-&lt;li&gt;业务方无需手动添加静态资源到对应目录&lt;/li&gt;
-&lt;li&gt;为浏览器原生语法，兼容性chrome63+&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;兼容性&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;
-&lt;p&gt;esm场景，如通过&lt;code&gt;type=module&lt;/code&gt;方式加载的组件可以使用&lt;code&gt;import.meta.url&lt;/code&gt;属性
-如ie支持，umd方式加载的脚本，可以使用相似属性&lt;code&gt;document.currentScript.src&lt;/code&gt;支持&lt;/p&gt;
-&lt;/li&gt;
-&lt;li&gt;
-&lt;p&gt;上述兼容转换可通过webpack5原生、rollup插件&lt;code&gt;@web/rollup-plugin-import-meta-assets&lt;/code&gt;支持。兼容esm，cjs，amd，umd，systemjs&lt;/p&gt;
-&lt;/li&gt;
-&lt;li&gt;
-&lt;p&gt;vite启动dev需要配置optimizedeps关闭对应npm包预构建 &lt;a href=&quot;https://github.com/vitejs/vite/issues/8427&quot;&gt;issue&lt;/a&gt;&lt;/p&gt;
-&lt;/li&gt;
-&lt;li&gt;
-&lt;p&gt;静态资源引用声明语句必须写在顶端。即script加上马上运行的地方，不能写在setup函数等延迟执行的地方。因为&lt;code&gt;document.currentScript&lt;/code&gt;对象只在对应脚本正在解析执行的时候有效。&lt;/p&gt;
-&lt;/li&gt;
-&lt;/ul&gt;
-</content:encoded></item><item><title>Babel 编译的 loose 模式简述</title><link>https://dabuside.github.io/posts/babel_loose_mode/</link><guid isPermaLink="true">https://dabuside.github.io/posts/babel_loose_mode/</guid><description>babel loose mode</description><pubDate>Wed, 20 Jan 2021 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
-&lt;h2&gt;前言&lt;/h2&gt;
-&lt;p&gt;我们都知道，&lt;code&gt;babel&lt;/code&gt; 可以将 &lt;code&gt;es6&lt;/code&gt; 的代码转换为 &lt;code&gt;es5&lt;/code&gt; 的代码。其中&lt;code&gt;presets&lt;/code&gt; 有两种模式可以选择。&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;将代码转换为最接近 &lt;code&gt;es6&lt;/code&gt; 规范的正常模式 &lt;code&gt;loose: false&lt;/code&gt;，他能保证转换前后的语义是 99% 一致的&lt;/li&gt;
-&lt;li&gt;将代码转换为更简单的 &lt;code&gt;es5&lt;/code&gt; 模式 &lt;code&gt;loose: true&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;我们项目用的是 &lt;code&gt;loose: true&lt;/code&gt;&lt;/p&gt;
-&lt;p&gt;我们举一个具体的例子&lt;/p&gt;
-&lt;h2&gt;ES6 原生模式&lt;/h2&gt;
-&lt;p&gt;下面 &lt;code&gt;es6&lt;/code&gt; 的 &lt;code&gt;class&lt;/code&gt; 语法&lt;/p&gt;
-&lt;blockquote&gt;
-&lt;p&gt;运行结果为控制台输出&lt;code&gt;x,y&lt;/code&gt;&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;pre&gt;&lt;code&gt;class Point {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-    }
-    toString() {
-        return `(${this.x}, ${this.y})`;
-    }
-}
-const point = new Point(1,2);
-
-//es6规范规定，class上面的方法是不可枚举的
-for( let i in point ) { console.log(i) } //x,y
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h2&gt;宽松模式&lt;/h2&gt;
-&lt;p&gt;如果宽松模式 &lt;code&gt;loose:true&lt;/code&gt; 模式转换的代码&lt;/p&gt;
-&lt;blockquote&gt;
-&lt;p&gt;运行结果为控制台输出&lt;code&gt;x,y,toString&lt;/code&gt;&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;pre&gt;&lt;code&gt;var Point = /*#__PURE__*/function () {
-  &quot;use strict&quot;;
-
-  function Point(x, y) {
-    this.x = x;
-    this.y = y;
-  }
-  var _proto = Point.prototype;
-  _proto.toString = function toString() {
-    return &quot;(&quot; + this.x + &quot;, &quot; + this.y + &quot;)&quot;;
-  };
-  return Point;
-}();
-var point = new Point(1, 2);
-
-for (var i in point) {
-  console.log(i);
-}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h2&gt;严格模式&lt;/h2&gt;
-&lt;p&gt;如果是严格模式 &lt;code&gt;loose:false&lt;/code&gt;&lt;/p&gt;
-&lt;blockquote&gt;
-&lt;p&gt;运行结果为控制台输出&lt;code&gt;x,y&lt;/code&gt;&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;pre&gt;&lt;code&gt;function _typeof(o) { &quot;@babel/helpers - typeof&quot;; return _typeof = &quot;function&quot; == typeof Symbol &amp;amp;&amp;amp; &quot;symbol&quot; == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o &amp;amp;&amp;amp; &quot;function&quot; == typeof Symbol &amp;amp;&amp;amp; o.constructor === Symbol &amp;amp;&amp;amp; o !== Symbol.prototype ? &quot;symbol&quot; : typeof o; }, _typeof(o); }
-require(&quot;core-js/modules/es.symbol.js&quot;);
-require(&quot;core-js/modules/es.symbol.description.js&quot;);
-require(&quot;core-js/modules/es.symbol.iterator.js&quot;);
-require(&quot;core-js/modules/es.symbol.to-primitive.js&quot;);
-require(&quot;core-js/modules/es.error.cause.js&quot;);
-require(&quot;core-js/modules/es.array.concat.js&quot;);
-require(&quot;core-js/modules/es.array.iterator.js&quot;);
-require(&quot;core-js/modules/es.date.to-primitive.js&quot;);
-require(&quot;core-js/modules/es.number.constructor.js&quot;);
-require(&quot;core-js/modules/es.object.to-string.js&quot;);
-require(&quot;core-js/modules/es.string.iterator.js&quot;);
-require(&quot;core-js/modules/web.dom-collections.iterator.js&quot;);
-function _classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError(&quot;Cannot call a class as a function&quot;); }
-function _defineProperties(e, r) { for (var t = 0; t &amp;lt; r.length; t++) { var o = r[t]; o.enumerable = o.enumerable || !1, o.configurable = !0, &quot;value&quot; in o &amp;amp;&amp;amp; (o.writable = !0), Object.defineProperty(e, _toPropertyKey(o.key), o); } }
-function _createClass(e, r, t) { return r &amp;amp;&amp;amp; _defineProperties(e.prototype, r), t &amp;amp;&amp;amp; _defineProperties(e, t), Object.defineProperty(e, &quot;prototype&quot;, { writable: !1 }), e; }
-function _toPropertyKey(t) { var i = _toPrimitive(t, &quot;string&quot;); return &quot;symbol&quot; == _typeof(i) ? i : i + &quot;&quot;; }
-function _toPrimitive(t, r) { if (&quot;object&quot; != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || &quot;default&quot;); if (&quot;object&quot; != _typeof(i)) return i; throw new TypeError(&quot;@@toPrimitive must return a primitive value.&quot;); } return (&quot;string&quot; === r ? String : Number)(t); }
-var Point = /*#__PURE__*/function () {
-  &quot;use strict&quot;;
-
-  function Point(x, y) {
-    _classCallCheck(this, Point);
-    this.x = x;
-    this.y = y;
-  }
-  return _createClass(Point, [{
-    key: &quot;toString&quot;,
-    value: function toString() {
-      return &quot;(&quot;.concat(this.x, &quot;, &quot;).concat(this.y, &quot;)&quot;);
-    }
-  }]);
-}();
-var point = new Point(1, 2);
-for (var i in point) {
-  console.log(i);
-}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;a href=&quot;https://babeljs.io/repl#?browsers=ie%2011&amp;amp;build=&amp;amp;builtIns=usage&amp;amp;corejs=3.21&amp;amp;spec=false&amp;amp;loose=false&amp;amp;code_lz=MYGwhgzhAEAKD2BLAdgF2gbwFDV9Y8yEqATgK7CrwkAUAHgDTQCeAlJjnl6gBaIQA6OtAC80OgG5OXXL34DmollK4BfadCoBlUigDmNdthl4SAU1RkSyaAAMaAEgxzBdVUycuFq1rZV51dQIidAAHJDQlZDMAdzgI1BoARgYAJlYpLAAzahpoEAtoRCKbcJR0I3xCCHgCgRB4A0R2VWggA&amp;amp;debug=false&amp;amp;forceAllTransforms=false&amp;amp;modules=false&amp;amp;shippedProposals=false&amp;amp;evaluate=false&amp;amp;fileSize=false&amp;amp;timeTravel=false&amp;amp;sourceType=script&amp;amp;lineWrap=false&amp;amp;presets=env%2Cstage-3&amp;amp;prettier=false&amp;amp;targets=&amp;amp;version=7.24.10&amp;amp;externalPlugins=%40babel%2Fplugin-transform-parameters%407.23.3&amp;amp;assumptions=%7B%7D&quot;&gt;repl-link&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;我们可以观察到，宽松模式产生了比较简单的 &lt;code&gt;es5&lt;/code&gt; 代码，但是和规范定义有些差别。正常模式则会将这些方法定义翻译为 &lt;code&gt;Object.defineProperty&lt;/code&gt; ，并设置成不可枚举，和直接运行 &lt;code&gt;es6&lt;/code&gt; 代码得到相同的结果。&lt;/p&gt;
-&lt;h2&gt;总结&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;code&gt;loose&lt;/code&gt; 模式可以产生更简单的代码，类似手写 &lt;code&gt;es6&lt;/code&gt; ，运行效率更高。如果后续使用 &lt;code&gt;es6&lt;/code&gt; 原生模式运行项目，可能会有意想不到的&lt;strong&gt;bug&lt;/strong&gt;&lt;/li&gt;
-&lt;li&gt;正常模式使用复杂的 &lt;code&gt;es5&lt;/code&gt; 代码去模拟 &lt;code&gt;es6&lt;/code&gt; 的规范，运行效率稍稍下降，但如果后续使用 &lt;code&gt;es6&lt;/code&gt; 原生模式运行项目，行为基本上是一致的。&lt;/li&gt;
-&lt;/ul&gt;
-</content:encoded></item><item><title>自动分析代码改动影响面</title><link>https://dabuside.github.io/posts/dependency_analyze/</link><guid isPermaLink="true">https://dabuside.github.io/posts/dependency_analyze/</guid><description>dependency analyze</description><pubDate>Sat, 15 May 2021 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
-&lt;h2&gt;前言&lt;/h2&gt;
-&lt;p&gt;大项目规矩实在太多了，修 &lt;code&gt;bug&lt;/code&gt; 需要详细描述问题根因，如何解决，测试步骤，影响范围，是否自测。经常上库几行代码，上库描述信息要写&lt;strong&gt;半小时&lt;/strong&gt;。&lt;/p&gt;
-&lt;p&gt;其中，前端对于其他页面的影响是这样规定的。&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;如果修改了&lt;code&gt;common_components&lt;/code&gt;中的全局组件，则需要对&lt;strong&gt;所有引用到组件的页面&lt;/strong&gt;进行测试，并列出所有影响到的页面给到测试&lt;/li&gt;
-&lt;li&gt;如果仅修改了某个页面的内容，则需测试对应页面&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;项目的目录结构大致如下&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;src/
-├── common_components/
-│   ├── global_component1.js
-│   └── global_component2.js
-└── pages/
-    ├── page1/
-    │   ├── index.js
-    │   ├── local_component1.js
-    │   └── local_component2.js
-    └── page2/
-        ├── index.js
-        ├── local_component3.js
-        └── local_component4.js
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h2&gt;问题&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;如果一些全局组件的被引用页面比较多，人工查询会非常耗时，而且容易漏&lt;/li&gt;
-&lt;li&gt;随着页面的上线/下线，有些全局组件，实际上只有1处引用，没有全局组件的含义了。那么开发人员和审核人员不用费时费力找引用关系了&lt;/li&gt;
-&lt;li&gt;有些开发不守规矩，本地组件也存在全局组件类似的功能，比如 &lt;code&gt;page1&lt;/code&gt; 页面下使用了 &lt;code&gt;page2&lt;/code&gt; 目录中的 &lt;code&gt;local_component&lt;/code&gt; 组件&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;思考&lt;/h2&gt;
-&lt;p&gt;由于代码比较统一，都是用 &lt;code&gt;CommonJS&lt;/code&gt; 处理的模块引用关系，想写一个工具处理这些引用分析，自动输出修改测试建议&lt;/p&gt;
-&lt;p&gt;经过一番搜索，了解到有一个叫&lt;a href=&quot;https://github.com/pahen/madge&quot;&gt;madge&lt;/a&gt;的工具，可以自动分析 &lt;code&gt;CJS&lt;/code&gt; 和 &lt;code&gt;ESM&lt;/code&gt; 的文件引用关系&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;./madge.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
-&lt;p&gt;直接进行 &lt;code&gt;API&lt;/code&gt; 调用的话，可以得到一个一维数组的文件直接引用关系&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;{
-  &quot;src/pages/page1/index.js&quot;: [
-    &quot;src/pages/page1/local_component1.js&quot;,
-    &quot;src/pages/page1/local_component2.js&quot;,
-    &quot;src/common_components/global_component1.js&quot;
-  ],
-  &quot;src/pages/page1/index.js&quot;: [
-    &quot;src/pages/page1/local_component3.js&quot;,
-    &quot;src/pages/page1/local_component4.js&quot;
-  ]
-}
-
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;我们吧这里的样式文件（css，less）去掉，再把这个一维数组组装成引用链，深度1的节点为直接引用，深度2的节点以下的链则为间接引用&lt;/p&gt;
-&lt;p&gt;这样，从一个或多个改动的文件，可以定位到最终影响的某个路由页面。&lt;/p&gt;
-&lt;p&gt;那么，根据项目的路由表，做出引用链终点数组，如果引用链索引到上述的某个路由文件，则输出对应的路由名称&lt;/p&gt;
-&lt;p&gt;则每个改动文件可以对应到如下三种情况&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;找到找到一个或多个最终路由目录&lt;/li&gt;
-&lt;li&gt;没有文件引用该文件，或者该文件最终没有被路由引用可能是这个文件是项目的冗余文件，或者路由入口被暂时注释导致&lt;/li&gt;
-&lt;li&gt;出现循环引用，中止递归待排查&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;优点：&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;在流水线上做改动，不影响原来任何功能。&lt;/li&gt;
-&lt;li&gt;自动化部分功能。由以前的提交人自行描述改动分析改为自动化分析改动影响面。节省了人员时间。&lt;/li&gt;
-&lt;li&gt;不限制代码语言、代码仓。如需在其他产品线引入功能。仅需修改输出路由表函数即可。&lt;/li&gt;
-&lt;/ol&gt;
-&lt;p&gt;缺点：&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;自动化程度不足。只有部分自动化。输出的是程序分析的改动影响路由。具体如何影响，还是需要人工判断。&lt;/li&gt;
-&lt;li&gt;存在无法检测到的场景。如&lt;code&gt;EXT&lt;/code&gt;，&lt;code&gt;windows&lt;/code&gt;等全局变量的使用。那么无法确定影响面。&lt;/li&gt;
-&lt;li&gt;存在无法检测到的场景，如动态引用，&lt;code&gt;require(var)&lt;/code&gt;, &lt;code&gt;require.context()&lt;/code&gt;。那么无法识别到当前文件的完整引用关系数据。&lt;/li&gt;
-&lt;li&gt;粒度粗。思考能否以函数、变量为维度去分析改动影响面。插桩？istanbul？&lt;/li&gt;
-&lt;/ol&gt;
-</content:encoded></item><item><title>视觉稿生成代码</title><link>https://dabuside.github.io/posts/design_to_code/</link><guid isPermaLink="true">https://dabuside.github.io/posts/design_to_code/</guid><description>design to code</description><pubDate>Sat, 20 Jul 2024 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>dabuside</title><description>blog</description><link>https://dabuside.github.io/</link><language>en</language><item><title>视觉稿生成代码</title><link>https://dabuside.github.io/posts/design_to_code/</link><guid isPermaLink="true">https://dabuside.github.io/posts/design_to_code/</guid><description>design to code</description><pubDate>Sat, 20 Jul 2024 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
 &lt;h2&gt;前言&lt;/h2&gt;
 &lt;p&gt;最近，团队做了个视觉稿生成代码的工具。这个工具可以一键将 &lt;a href=&quot;https://mastergo.com/&quot;&gt;mastergo平台&lt;/a&gt; 设计稿平台的设计稿变成可用代码。与 mastergo 平台的开发人员对接的时候，他们都表示功能比他们自己的 d2c 还要好，笑。&lt;/p&gt;
 &lt;p&gt;整体工作流程是这样的&lt;/p&gt;
@@ -666,36 +432,6 @@ import { IxForm, IxFormItem, IxInput, IxIcon } from &apos;@idux-vue2&apos;;
 &lt;h3&gt;eslint autofix&lt;/h3&gt;
 &lt;p&gt;https://eslint.org/docs/latest/rules/no-unused-vars&lt;/p&gt;
 &lt;p&gt;官方有规则报错，但是没有自动修复，所以需要人工写一个 fixer 规则去自动删除无用变量&lt;/p&gt;
-</content:encoded></item><item><title>从页面元素定位到源码位置</title><link>https://dabuside.github.io/posts/ext-dev-tools/</link><guid isPermaLink="true">https://dabuside.github.io/posts/ext-dev-tools/</guid><description>ext dev tools</description><pubDate>Tue, 22 Jun 2021 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
-&lt;h2&gt;快乐划水&lt;/h2&gt;
-&lt;p&gt;今天上班划水，看到一个很有意思的文章&lt;a href=&quot;https://juejin.cn/post/6901466406823575560&quot;&gt;我点了页面上的元素，VSCode 乖乖打开了对应的组件？原理揭秘。&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;虽然&lt;code&gt;vue-dev-tools&lt;/code&gt;早就支持这个功能，但是看到这个&lt;code&gt;react&lt;/code&gt;版本的实现的细节，我才知道原理，简单概况一下&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;在编译的过程中，&lt;code&gt;babel&lt;/code&gt; 解析 &lt;code&gt;ast&lt;/code&gt;，遇到 &lt;code&gt;JSXOpeningElement&lt;/code&gt; 这个 &lt;code&gt;node&lt;/code&gt; 的 &lt;code&gt;type&lt;/code&gt; 的时候，注入当前源码行、列、文件到节点信息&lt;code&gt;fiber node&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;外部通过 &lt;code&gt;chrome插件&lt;/code&gt; 或者 用户代码注入一个事件，用户手动触发点击节点，从用户点击的节点中查找&lt;em&gt;步骤1&lt;/em&gt;中注入的信息，如果找到了，那么往本机发送一个请求&lt;/li&gt;
-&lt;li&gt;本机启动一个服务。用于接受上述&lt;em&gt;步骤2&lt;/em&gt;发来的请求。当接受到请求的时候，监测本机常用的 &lt;code&gt;IDE&lt;/code&gt; 进程是否打开，调用系统命令打开对应 &lt;code&gt;IDE&lt;/code&gt; ，若都没找到则 fallback 记事本打开&lt;/li&gt;
-&lt;/ol&gt;
-&lt;p&gt;:::NOTE
-吐槽一下，我测试的时候怎么经常 fallback 到记事本打开，我 IDE 开着呢
-:::&lt;/p&gt;
-&lt;h2&gt;简单实现&lt;/h2&gt;
-&lt;p&gt;现在项目中用的都是&lt;code&gt;Ext&lt;/code&gt;，老东西是没有 &lt;code&gt;dev-tools&lt;/code&gt; 的，找页面代码也是十分痛苦，我也准备搞一个自己的 &lt;code&gt;ext-dev-tool&lt;/code&gt; 插件&lt;/p&gt;
-&lt;p&gt;整体流程与上述类似&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;&lt;code&gt;dev&lt;/code&gt; 场景，在 &lt;code&gt;babel&lt;/code&gt; 编译的过程中，遇到 &lt;code&gt;new&lt;/code&gt; 组件的声明语句的时候、遇到 &lt;code&gt;xtype&lt;/code&gt; 节点声明的时候，注入当前源码行、列、文件到节点信息&lt;/li&gt;
-&lt;li&gt;用户触发 &lt;code&gt;dev-tool&lt;/code&gt; 查询，使用&lt;code&gt;closest()&lt;/code&gt;定位到最近的元素，通过&lt;code&gt;Ext.get(id)&lt;/code&gt;获得组件实例&lt;/li&gt;
-&lt;li&gt;在实例上查找1中注入的源码位置信息，若没有查到，则查询当前节点的父节点，直到父节点是 &lt;code&gt;body&lt;/code&gt; 为止&lt;/li&gt;
-&lt;li&gt;在 &lt;code&gt;webpack devserver&lt;/code&gt; 接受上述3发送来的源码位置信息，调用命令行使用 &lt;code&gt;websotrm&lt;/code&gt; 打开文件&lt;/li&gt;
-&lt;/ol&gt;
-&lt;blockquote&gt;
-&lt;p&gt;&lt;code&gt;webstorm64.exe [--line &amp;lt;number&amp;gt;] [--column &amp;lt;number&amp;gt;] &amp;lt;path ...&amp;gt;&lt;/code&gt;&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;p&gt;咱们的组件声明场景大致如下&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;xtype.png&quot; alt=&quot;xtype&quot; /&gt;&lt;/p&gt;
-&lt;p&gt;简单的注入 &lt;code&gt;babel&lt;/code&gt; 插件实现&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;babel.png&quot; alt=&quot;babel&quot; /&gt;&lt;/p&gt;
-&lt;p&gt;至于&lt;code&gt;dev server&lt;/code&gt; 接受请求自动打开 IDE，适配不同 IDE 命令行的文件、loc位置信息传参，直接抄 &lt;a href=&quot;https://github.com/yyx990803/launch-editor&quot;&gt;vite源码实现&lt;/a&gt;，真是方便，感谢yyx&lt;/p&gt;
-&lt;p&gt;实测，最终大概有 70% 的节点可以被注入源码信息，剩下 30% 的节点创造语句太复杂了，就不注入了。。。&lt;/p&gt;
 </content:encoded></item><item><title>在 JavaScript 模块中导入非 JavaScript 资源</title><link>https://dabuside.github.io/posts/import_attributes/</link><guid isPermaLink="true">https://dabuside.github.io/posts/import_attributes/</guid><description>Import Assertions Syntax</description><pubDate>Tue, 28 Nov 2023 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
 &lt;h2&gt;导入断言（Import Assertions）&lt;/h2&gt;
 &lt;p&gt;最初的 &lt;code&gt;Import Assertions&lt;/code&gt; 导入断言提案规定 &lt;code&gt;JavaScript&lt;/code&gt; 模块能够通过显式的类型断言来导入非 &lt;code&gt;JavaScript&lt;/code&gt; 资源。这对于处理各种类型的模块（尤其是 &lt;code&gt;JSON&lt;/code&gt; 模块）非常重要。&lt;/p&gt;
@@ -735,132 +471,6 @@ import { IxForm, IxFormItem, IxInput, IxIcon } from &apos;@idux-vue2&apos;;
 &lt;li&gt;https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import&lt;/li&gt;
 &lt;li&gt;https://github.com/tc39/proposal-import-attributes&lt;/li&gt;
 &lt;/ul&gt;
-</content:encoded></item><item><title>javascript 绕过反调试</title><link>https://dabuside.github.io/posts/javascript_anti_anti_debug/</link><guid isPermaLink="true">https://dabuside.github.io/posts/javascript_anti_anti_debug/</guid><pubDate>Thu, 10 Mar 2022 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
-&lt;p&gt;直接绕过三种反调试&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;无限 &lt;code&gt;debugger&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;getter 陷阱&lt;/li&gt;
-&lt;li&gt;无限 &lt;code&gt;console.clear()&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;https://chromewebstore.google.com/detail/anti-anti-debug/mnmnmcmdkigakhlfkcdimghndnmomfeo&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;image.png&quot; alt=&quot;img&quot; /&gt;&lt;/p&gt;
-</content:encoded></item><item><title>javascript 反调试</title><link>https://dabuside.github.io/posts/javascript_anti_debug/</link><guid isPermaLink="true">https://dabuside.github.io/posts/javascript_anti_debug/</guid><pubDate>Thu, 10 Mar 2022 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
-&lt;h2&gt;背景&lt;/h2&gt;
-&lt;p&gt;&lt;code&gt;js&lt;/code&gt; 代码在客户端运行，&lt;code&gt;chrome dev tools&lt;/code&gt;提供了完善的调试能力。&lt;/p&gt;
-&lt;p&gt;假如要做一个考试系统或者学习系统，客户端代码必然掺杂许多内部实现逻辑，如题目下发，做题，提交答案等等。开发者肯定是不想让第三方了解内部实现原理。&lt;/p&gt;
-&lt;p&gt;这里介绍几种 &lt;code&gt;js&lt;/code&gt; 反调试技术。如检测调试到就上报系统、检测调试到页面就清空不运行等等，增大破解难度。&lt;/p&gt;
-&lt;p&gt;:::tip
-当破解成本大于自身信息价值的时候，那么就满足了计算安全，破解者就少。
-:::&lt;/p&gt;
-&lt;h2&gt;Time Diff&lt;/h2&gt;
-&lt;pre&gt;&lt;code&gt;var startTime = performance.now();
-startMaliciousCode();
-var stopTime = performance.now();
-if ((stopTime - startTime) &amp;gt; 1000) {
-    alert(&quot;Debugger detected!&quot;)
-}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h2&gt;Chrome Getter&lt;/h2&gt;
-&lt;pre&gt;&lt;code&gt;let div = document.createElement(&apos;div&apos;);
-console.log(div);
-Object.defineProperty(div, &quot;id&quot;, {get: () =&amp;gt; { alert(&quot;Dev Tools detected!&quot;); }});
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h2&gt;Code Integrity&lt;/h2&gt;
-&lt;pre&gt;&lt;code&gt;function hashCode (s) {
-    var hash = 0;
-    if (s.length == 0) {
-        return hash;
-    }
-    for (var i = 0; i &amp;lt; s.length; i++) {
-        var char = s.charCodeAt(i);
-        hash = ((hash&amp;lt;&amp;lt;5)-hash)+char;
-        hash = hash &amp;amp; hash; // Convert to 32bit integer
-    }
-    return hash;
-}
-
-function start() {
-    alert(&apos;steal cookies!&apos;);
-}
-
-function main() {
-    if (hashCode(start.toString()) !== -1968638942) return;
-    start();
-}
-
-main()
-&lt;/code&gt;&lt;/pre&gt;
-</content:encoded></item><item><title>在 Ext 中使用 JSX</title><link>https://dabuside.github.io/posts/jsx_in_ext_docs/</link><guid isPermaLink="true">https://dabuside.github.io/posts/jsx_in_ext_docs/</guid><description>ext in jsx</description><pubDate>Thu, 30 Apr 2020 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
-&lt;h2&gt;前言&lt;/h2&gt;
-&lt;p&gt;Ext 这个框架真的不好用。。。&lt;/p&gt;
-&lt;p&gt;平常就是用一大串 &lt;code&gt;json&lt;/code&gt; 去渲染一个表单，&lt;code&gt;json&lt;/code&gt; 这个格式对人实在不友好，只要内容一多，马上眼花缭乱&lt;/p&gt;
-&lt;p&gt;比如一个简单的 &lt;code&gt;radiogroup&lt;/code&gt; 的声明 &lt;code&gt;json&lt;/code&gt; 如下。眼睛都要看花了&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;form.items = [{
-  xtype: &quot;RadioGroup&quot;,
-  itemId: &quot;ext-jsx&quot;,
-  vmodel: long_varable_name,
-  name: _(&apos;nice boat&apos;),
-  items: [{
-    xtype: &quot;Radio&quot;,
-    checkedValue: &quot;A&quot;,
-    defaultChecked: true
-  }, {
-    xtype: &quot;Radio&quot;,
-    checkedValue: &quot;B&quot;
-  }, {
-    xtype: &quot;Radio&quot;,
-    checkedValue: &quot;C&quot;
-  }, {
-    xtype: &quot;RadioGroup&quot;,
-    items: [{
-      xtype: &quot;Radio&quot;,
-      checkedValue: &quot;D&quot;
-    }, {
-      xtype: &quot;Radio&quot;,
-      checkedValue: &quot;E&quot;,
-      items: [{
-        xtype: &quot;myCustomInnerXtype&quot;
-      }]
-    }]
-  }]
-}, new Grid({
-  ext_in_jsx: &apos;awesome&apos;
-})];
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;上一份工作用的是 &lt;code&gt;react&lt;/code&gt;，我还是觉得类 &lt;code&gt;html&lt;/code&gt; 的语言同来描述页面最适合不过了&lt;/p&gt;
-&lt;p&gt;如果上述的 &lt;code&gt;json&lt;/code&gt; 用 &lt;code&gt;jsx&lt;/code&gt; 语法来描述的话，只需要 14 行，瞬间少了一半多有没有&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;form.items =
-&amp;lt;&amp;gt;
-  &amp;lt;RadioGroup itemId=&quot;ext-jsx&quot; vmodel={long_varable_name} name={_(&apos;nice boat&apos;)}&amp;gt;
-    &amp;lt;Radio checkedValue=&quot;A&quot; defaultChecked&amp;gt;&amp;lt;/Radio&amp;gt;
-    &amp;lt;Radio checkedValue=&quot;B&quot;&amp;gt;&amp;lt;/Radio&amp;gt;
-    &amp;lt;Radio checkedValue=&quot;C&quot;&amp;gt;&amp;lt;/Radio&amp;gt;
-    // i am comment
-    &amp;lt;RadioGroup&amp;gt;
-      &amp;lt;Radio checkedValue=&quot;D&quot;&amp;gt;&amp;lt;/Radio&amp;gt;
-      &amp;lt;Radio checkedValue=&quot;E&quot;&amp;gt;&amp;lt;myCustomInnerXtype/&amp;gt;&amp;lt;/Radio&amp;gt;
-    &amp;lt;/RadioGroup&amp;gt;
-  &amp;lt;/RadioGroup&amp;gt;
-  {new Grid({ext_in_jsx: &apos;awesome&apos;})}
-&amp;lt;/&amp;gt;
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;自己写了一个 &lt;code&gt;babel&lt;/code&gt; 插件，可以将 &lt;code&gt;jsx&lt;/code&gt; 语法编译成类似 &lt;code&gt;Ext&lt;/code&gt; 中的表单渲染 &lt;code&gt;json&lt;/code&gt; 对象&lt;/p&gt;
-&lt;h2&gt;效果&lt;/h2&gt;
-&lt;p&gt;&lt;img src=&quot;preview.png&quot; alt=&quot;preview&quot; /&gt;&lt;/p&gt;
-&lt;h2&gt;在线玩一下&lt;/h2&gt;
-&lt;p&gt;&lt;a href=&quot;https://dabuside.github.io/jsx_in_ext/&quot;&gt;https://dabuside.github.io/jsx_in_ext/&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;::github{repo=&quot;dabuside/jsx_in_ext&quot;}&lt;/p&gt;
-</content:encoded></item><item><title>纯浏览器完成手写数字识别</title><link>https://dabuside.github.io/posts/mnist_broswer_docs/</link><guid isPermaLink="true">https://dabuside.github.io/posts/mnist_broswer_docs/</guid><description>mnist-broswer-pure</description><pubDate>Thu, 30 Nov 2017 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
-&lt;h2&gt;前言&lt;/h2&gt;
-&lt;p&gt;组里要求全员学习AI&lt;/p&gt;
-&lt;p&gt;学了一点 &lt;a href=&quot;https://cs231n.stanford.edu/index.html&quot;&gt;Computer Vision&lt;/a&gt; 和 &lt;a href=&quot;https://www.tensorflow.org/js&quot;&gt;TensorFlow&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;秉着试一试的精神，用了&lt;code&gt;tfjs&lt;/code&gt;做了一个纯浏览器版本的手写数字识别&lt;/p&gt;
-&lt;p&gt;训练部分与预测部分均在浏览器端完成&lt;/p&gt;
-&lt;h2&gt;效果&lt;/h2&gt;
-&lt;p&gt;&lt;img src=&quot;preview.gif&quot; alt=&quot;preview&quot; /&gt;&lt;/p&gt;
-&lt;h2&gt;在线玩一下&lt;/h2&gt;
-&lt;p&gt;&lt;a href=&quot;https://dabuside.github.io/mnist-browser/&quot;&gt;https://dabuside.github.io/mnist-browser/&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;::github{repo=&quot;dabuside/mnist-browser&quot;}&lt;/p&gt;
 </content:encoded></item><item><title>pnpm lockfile 的不兼容性</title><link>https://dabuside.github.io/posts/pnpm_lockfile_version/</link><guid isPermaLink="true">https://dabuside.github.io/posts/pnpm_lockfile_version/</guid><pubDate>Sun, 22 Oct 2023 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
 &lt;h2&gt;问题&lt;/h2&gt;
 &lt;p&gt;由于 &lt;code&gt;npm&lt;/code&gt; 包管理工具较为低效，前端圈出现了很多热门的第三方包管理工具。&lt;/p&gt;
@@ -903,6 +513,174 @@ main()
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;至此，在指定了&lt;code&gt;packageManager&lt;/code&gt;的项目内安装依赖，&lt;code&gt;corepack&lt;/code&gt;会自动切换到所需的版本，从而保证安装出正确的依赖。&lt;/p&gt;
+</content:encoded></item><item><title>如何处理 npm 包中的静态资源</title><link>https://dabuside.github.io/posts/asset_in_npm_package/</link><guid isPermaLink="true">https://dabuside.github.io/posts/asset_in_npm_package/</guid><description>ship assets in a npm package</description><pubDate>Sat, 01 Apr 2023 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+&lt;h2&gt;背景&lt;/h2&gt;
+&lt;p&gt;:::note
+该场景与如下 issue 是同一个问题&lt;/p&gt;
+&lt;p&gt;https://github.com/webpack/webpack/issues/7353
+:::&lt;/p&gt;
+&lt;p&gt;大屏项目需要运行时远程加载业务组件，其中业务组件 npm 包涉及一些静态资源，如背景图，字体文件。之前的处理方式是，图片，字体打包成 base64 到业务组件的 js 中。&lt;/p&gt;
+&lt;p&gt;一般情况下，组件内引用字体、图片等资源，打包为 js 文件时，直接导出资源的话，生成的 js 代码是将静态资源以相对路径的方式引用，所有的静态资源会存放到相对路径对应的文件夹中。&lt;/p&gt;
+&lt;p&gt;这样做存在的问题是，组件打包后 js 中的相对路径是写死的，每个项目的静态资源存放路径又不一样，一旦项目的静态资源路径和组件 js 中的路径不一样，资源引用就失败了。&lt;/p&gt;
+&lt;p&gt;我们在构建业务组件库 npm 包的时候，需要考虑如何处理这些静态资源。&lt;/p&gt;
+&lt;p&gt;如下图中基础环状饼图为远程加载的业务组件，其中的蓝色背景图即为业务组件饼图所需的静态图片资源。
+&lt;img src=&quot;demo.png&quot; alt=&quot;demo&quot; /&gt;&lt;/p&gt;
+&lt;h2&gt;业界方案&lt;/h2&gt;
+&lt;p&gt;目前业界对 npm 包中静态资源的处理一般为两种&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;所有静态资源打包成 base64 放入 js 文件中&lt;/li&gt;
+&lt;li&gt;让用户自行决定如何引用静态资源&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;他们的缺陷也都很明显&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;静态资源转 base64 后体积会大30%。且需要图片+组件渲染代码资源一起下载后，才能渲染。效果不如先加载组件渲染，后请求图片来的丝滑。&lt;/li&gt;
+&lt;li&gt;如 idux 的 svg 引用，需要让用户手动拷贝 svg 图片到静态资源文件夹下，再到代码中设置图标的加载函数。如果遇到业务组件库更新频繁的情况，操作上比较麻烦。&lt;/li&gt;
+&lt;li&gt;业务组件后续会支持外部导入。外部导入的业务组件的静态资源可能和内部业务组件静态资源重名。&lt;/li&gt;
+&lt;li&gt;业务组件的代码，在业务组件的目录内，业务组件的图片放在平台侧的静态文件夹下，等于在两个库分别管理图片和代码，版本管理不清晰，也容易误操作。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;我的方案&lt;/h2&gt;
+&lt;p&gt;使用&lt;code&gt;import.meta.url + new URL()&lt;/code&gt;去标记资源相对位置&lt;/p&gt;
+&lt;p&gt;import.meta是&lt;strong&gt;ES2020&lt;/strong&gt;的新规范，import.meta对象提供模块加载相关的元数据。如该模块从哪里加载的。&lt;/p&gt;
+&lt;p&gt;假设组件A的组件目录结构如下&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;componentA/
+├─ index.js
+├─ img.png
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;其中，index.js的代码如下&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;//若index.js从 ui.com/bigscreen/static/componentA/index.js加载，那么import.meta.url就是这个路径
+//通过new URL拼装，可以实现相对路径指向
+//img = ui.com/bigscreen/static/componentA/img.png
+const img = new URL(&apos;./image.png&apos;, import.meta.url)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;上述一行代码即实现了从资源相对路径指向。&lt;/p&gt;
+&lt;p&gt;这个方案比上述两个业界常见方案的优点是&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;组件文件和图片文件放在一起管理，比较清晰&lt;/li&gt;
+&lt;li&gt;业务方使用组件，拷贝资源到静态资源文件夹&lt;/li&gt;
+&lt;li&gt;业务方无需手动添加静态资源到对应目录&lt;/li&gt;
+&lt;li&gt;为浏览器原生语法，兼容性chrome63+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;兼容性&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;esm场景，如通过&lt;code&gt;type=module&lt;/code&gt;方式加载的组件可以使用&lt;code&gt;import.meta.url&lt;/code&gt;属性
+如ie支持，umd方式加载的脚本，可以使用相似属性&lt;code&gt;document.currentScript.src&lt;/code&gt;支持&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;上述兼容转换可通过webpack5原生、rollup插件&lt;code&gt;@web/rollup-plugin-import-meta-assets&lt;/code&gt;支持。兼容esm，cjs，amd，umd，systemjs&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;vite启动dev需要配置optimizedeps关闭对应npm包预构建 &lt;a href=&quot;https://github.com/vitejs/vite/issues/8427&quot;&gt;issue&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;静态资源引用声明语句必须写在顶端。即script加上马上运行的地方，不能写在setup函数等延迟执行的地方。因为&lt;code&gt;document.currentScript&lt;/code&gt;对象只在对应脚本正在解析执行的时候有效。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+</content:encoded></item><item><title>巨型项目重构记录（CI流程）</title><link>https://dabuside.github.io/posts/refactor_a_big_project_ci/</link><guid isPermaLink="true">https://dabuside.github.io/posts/refactor_a_big_project_ci/</guid><description>makefile to simple shell script</description><pubDate>Tue, 22 Mar 2022 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+&lt;h2&gt;历史问题&lt;/h2&gt;
+&lt;p&gt;前后端没有分仓库管理的时候，前后端代码在同一个仓库内，且前后端构建在一个脚本内，由后端维护。&lt;/p&gt;
+&lt;p&gt;现在前端仓库从后端代码仓独立之后，后端不太管这一块。出问题需要自行排查解决。遗留问题老大难了。&lt;/p&gt;
+&lt;p&gt;原先的构建代码有 1000+ 行，而且还是以&lt;code&gt;makefile&lt;/code&gt;脚本写的，前端没人看得懂。。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;CI实在卡的不行，一次少说 30 分钟。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src=&quot;old_ci.png&quot; alt=&quot;old_ci_time&quot; /&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;原有CI流程也太多了&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src=&quot;process.png&quot; alt=&quot;process&quot; /&gt;&lt;/p&gt;
+&lt;h2&gt;梳理&lt;/h2&gt;
+&lt;p&gt;经过痛苦的 &lt;code&gt;makefile&lt;/code&gt; 学习之后，我发现卡的原因在于&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;在打包脚本里面写安装软件，跑CI都需要安装&lt;code&gt;node&lt;/code&gt;,&lt;code&gt;git&lt;/code&gt;,&lt;code&gt;yarn&lt;/code&gt;等软件&lt;/li&gt;
+&lt;li&gt;CI是在 &lt;code&gt;shell runner&lt;/code&gt; 中执行的，而不是 &lt;code&gt;docker runner&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;怎么破局&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;ol&gt;
+&lt;li&gt;对于前端构建来说哪些流程是必要的？===&amp;gt;构建、上传代码&lt;/li&gt;
+&lt;li&gt;构建脚本中软件安装流程能否省略？===&amp;gt;迁移至docker image内&lt;/li&gt;
+&lt;li&gt;代码可读性不佳，如何优化？===&amp;gt;重构、提供完整的文档&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;docker 简介&lt;/h2&gt;
+&lt;h3&gt;什么是docker？&lt;/h3&gt;
+&lt;p&gt;The Docker daemon（dockerd） docker服务端。主要功能是管理image container network等&lt;/p&gt;
+&lt;p&gt;The Docker client（docker） Docker前端。大部分用户通过docker前端来操作docker。主要功能是和dockerd通讯。&lt;/p&gt;
+&lt;p&gt;Docker registries 类似git，提供pull push commit tag等功能。主要是对docker image进行版本管理。&lt;/p&gt;
+&lt;p&gt;Images 只读模板，类似虚拟机镜像（win7+ie8;win7+ie10）&lt;/p&gt;
+&lt;p&gt;Containers 是 image 的可运行实例。&lt;/p&gt;
+&lt;h3&gt;什么是 gitlab runner？&lt;/h3&gt;
+&lt;p&gt;Runner是 gitlab ci cd 工作流钦定的执行套件。
+&lt;img src=&quot;gitlab_runner.png&quot; alt=&quot;gitlab_runner&quot; /&gt;&lt;/p&gt;
+&lt;h3&gt;不同 executor 有什么区别&lt;/h3&gt;
+&lt;p&gt;&lt;img src=&quot;executor.png&quot; alt=&quot;executor&quot; /&gt;&lt;/p&gt;
+&lt;h2&gt;改造&lt;/h2&gt;
+&lt;h3&gt;制作前端构建环境 docker 镜像&lt;/h3&gt;
+&lt;p&gt;俺们吧所需的全部软件，安装到 docker 镜像里面，写成 docker file&lt;/p&gt;
+&lt;p&gt;再上传到公司的 docker harbor 镜像仓库&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;docker_harbor.png&quot; alt=&quot;docker_harbor&quot; /&gt;&lt;/p&gt;
+&lt;h3&gt;注册 docker gitlab runner 到项目&lt;/h3&gt;
+&lt;h3&gt;迁移 1000+ 行 makefile 构建到 node script&lt;/h3&gt;
+&lt;p&gt;&lt;img src=&quot;yaml.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+&lt;h2&gt;最终效果&lt;/h2&gt;
+&lt;p&gt;CI 流水线平均用时缩短 90%&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;new_ci.png&quot; alt=&quot;new_ci&quot; /&gt;&lt;/p&gt;
+</content:encoded></item><item><title>巨型项目重构记录（框架）</title><link>https://dabuside.github.io/posts/refactor_a_big_project_framework/</link><guid isPermaLink="true">https://dabuside.github.io/posts/refactor_a_big_project_framework/</guid><description>Ext 迁移 Vue</description><pubDate>Mon, 21 Mar 2022 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+&lt;h2&gt;概要&lt;/h2&gt;
+&lt;p&gt;项目使用的 Ext 框架已经有10年以上历史。目前前端界知道使用过该框架的人非常少，而且难度大，导致上手成本非常高。一个从来没有做到 Ext 的新手至少要熟悉一个月以上，也只能处理纯粹的表单表格这种页面，对于稍微炫一点的页面无能为力，这时效率就非常低了。此前由于这些原因也导致人员培养困难、招不到人接手、公司内部只有少数前端熟悉该框架、新人较排斥。业务组之间协调人力由于框架上的差异也造成较大风险。&lt;/p&gt;
+&lt;h2&gt;行动&lt;/h2&gt;
+&lt;p&gt;重构不得不进行，有两种重构方式&lt;/p&gt;
+&lt;p&gt;首先，由 &lt;code&gt;Framework&lt;/code&gt; 提供的基础功能有&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;路由&lt;/li&gt;
+&lt;li&gt;全局数据&lt;/li&gt;
+&lt;li&gt;页面导航框架&lt;/li&gt;
+&lt;li&gt;全局告警&lt;/li&gt;
+&lt;li&gt;页面多开&lt;/li&gt;
+&lt;li&gt;10 more&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;Ext 嵌入 Vue&lt;/h3&gt;
+&lt;p&gt;Ext作为框架内嵌 vue&lt;/p&gt;
+&lt;p&gt;用简单代码来描述的话，仅需改造&lt;code&gt;LazyPageLoader&lt;/code&gt;，使得它可以创建一个空白节点，装载&lt;code&gt;vue示例&lt;/code&gt;上去，并在全局数据变化的时候强制让&lt;code&gt;VuePage&lt;/code&gt;去&lt;code&gt;reload&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;&amp;lt;ExtFramework&amp;gt;
+  &amp;lt;LazyPageLoader&amp;gt;
+    &amp;lt;ExtPage1 /&amp;gt;
+    &amp;lt;ExtPage2 /&amp;gt;
+    &amp;lt;ExtPage3 /&amp;gt;
+    &amp;lt;VuePage1 /&amp;gt;
+  &amp;lt;/LazyPageLoader&amp;gt;
+&amp;lt;/ExtFramework&amp;gt;;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ol&gt;
+&lt;li&gt;前期风险较小，不需要改原始的项目框架，只针对新的模块创建一个 Ext 容器将 Vue 挂载进去&lt;/li&gt;
+&lt;li&gt;最终并不能将 Ext 框架舍弃，首先你还是得会用 Ext 去创建一个页面&lt;/li&gt;
+&lt;li&gt;项目里面很多复杂的业务组件，换vue不现实；不换最终将变成Ext里面插入vue，vue里面又插入Ext&lt;/li&gt;
+&lt;li&gt;后面如果像去掉 Ext 外壳将对整个项目产生较大风险，测试量大。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3&gt;Vue 嵌入 Ext&lt;/h3&gt;
+&lt;p&gt;Ext作为框架内嵌 vue&lt;/p&gt;
+&lt;p&gt;则需要改造全部由&lt;code&gt;Framework&lt;/code&gt;提供的能力，但是改造的也会更彻底&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;&amp;lt;VueFramework&amp;gt;
+  &amp;lt;LazyPageLoader&amp;gt;
+    &amp;lt;VuePage1 /&amp;gt;
+    &amp;lt;ExtLoader&amp;gt;
+      &amp;lt;ExtPage1 /&amp;gt;
+    &amp;lt;/ExtLoader&amp;gt;
+    &amp;lt;ExtLoader&amp;gt;
+      &amp;lt;ExtPage2 /&amp;gt;
+    &amp;lt;/ExtLoader&amp;gt;
+  &amp;lt;/LazyPageLoader&amp;gt;
+&amp;lt;/VueFramework&amp;gt;;
+
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ol&gt;
+&lt;li&gt;可将复杂的Ext业务组件直接用Vue包裹起来，不需要特意去维护。&lt;/li&gt;
+&lt;li&gt;风险前移，只要前期预研方案产出充分，后期将基本不会对项目产生不可预知的风险，最终可实现逐步全部替换成新框架。&lt;/li&gt;
+&lt;li&gt;需要将原项目中所有以前的Ext载入流程全换成vue&lt;/li&gt;
+&lt;li&gt;原渲染形式将受较大影响&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;方案一属于风险前移型，前期做好充分的工作，后期将随心所欲；方案二属于风险后置型，要不就一直依附在Ext框架上，要不就后期处理原framework的逻辑&lt;/p&gt;
 </content:encoded></item><item><title>巨型项目重构记录（构建工具）</title><link>https://dabuside.github.io/posts/refactor_a_big_project_bundler/</link><guid isPermaLink="true">https://dabuside.github.io/posts/refactor_a_big_project_bundler/</guid><description>Webpack 迁移 Vite</description><pubDate>Sun, 20 Mar 2022 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
 &lt;h2&gt;大坑&lt;/h2&gt;
 &lt;p&gt;接手了一个历史 10+ 年，200+ 页面路由，js 文件 3000+，css/less 文件 2000+ 的巨型后台管理系统。它的脚手架是公司内部定制的&lt;code&gt;sfx&lt;/code&gt;，即深度封装的&lt;code&gt;webpack4&lt;/code&gt;。他的界面是长这个样子的。&lt;/p&gt;
@@ -1210,109 +988,331 @@ module.exports = {
 &lt;li&gt;热启动时间 30s&lt;/li&gt;
 &lt;li&gt;HMR 时间 1s 内&lt;/li&gt;
 &lt;/ul&gt;
-</content:encoded></item><item><title>巨型项目重构记录（CI流程）</title><link>https://dabuside.github.io/posts/refactor_a_big_project_ci/</link><guid isPermaLink="true">https://dabuside.github.io/posts/refactor_a_big_project_ci/</guid><description>makefile to simple shell script</description><pubDate>Tue, 22 Mar 2022 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
-&lt;h2&gt;历史问题&lt;/h2&gt;
-&lt;p&gt;前后端没有分仓库管理的时候，前后端代码在同一个仓库内，且前后端构建在一个脚本内，由后端维护。&lt;/p&gt;
-&lt;p&gt;现在前端仓库从后端代码仓独立之后，后端不太管这一块。出问题需要自行排查解决。遗留问题老大难了。&lt;/p&gt;
-&lt;p&gt;原先的构建代码有 1000+ 行，而且还是以&lt;code&gt;makefile&lt;/code&gt;脚本写的，前端没人看得懂。。&lt;/p&gt;
-&lt;blockquote&gt;
-&lt;p&gt;CI实在卡的不行，一次少说 30 分钟。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;p&gt;&lt;img src=&quot;old_ci.png&quot; alt=&quot;old_ci_time&quot; /&gt;&lt;/p&gt;
-&lt;blockquote&gt;
-&lt;p&gt;原有CI流程也太多了&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;p&gt;&lt;img src=&quot;process.png&quot; alt=&quot;process&quot; /&gt;&lt;/p&gt;
-&lt;h2&gt;梳理&lt;/h2&gt;
-&lt;p&gt;经过痛苦的 &lt;code&gt;makefile&lt;/code&gt; 学习之后，我发现卡的原因在于&lt;/p&gt;
+</content:encoded></item><item><title>javascript 绕过反调试</title><link>https://dabuside.github.io/posts/javascript_anti_anti_debug/</link><guid isPermaLink="true">https://dabuside.github.io/posts/javascript_anti_anti_debug/</guid><pubDate>Thu, 10 Mar 2022 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+&lt;p&gt;直接绕过三种反调试&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;在打包脚本里面写安装软件，跑CI都需要安装&lt;code&gt;node&lt;/code&gt;,&lt;code&gt;git&lt;/code&gt;,&lt;code&gt;yarn&lt;/code&gt;等软件&lt;/li&gt;
-&lt;li&gt;CI是在 &lt;code&gt;shell runner&lt;/code&gt; 中执行的，而不是 &lt;code&gt;docker runner&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;无限 &lt;code&gt;debugger&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;getter 陷阱&lt;/li&gt;
+&lt;li&gt;无限 &lt;code&gt;console.clear()&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;blockquote&gt;
-&lt;p&gt;怎么破局&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;ol&gt;
-&lt;li&gt;对于前端构建来说哪些流程是必要的？===&amp;gt;构建、上传代码&lt;/li&gt;
-&lt;li&gt;构建脚本中软件安装流程能否省略？===&amp;gt;迁移至docker image内&lt;/li&gt;
-&lt;li&gt;代码可读性不佳，如何优化？===&amp;gt;重构、提供完整的文档&lt;/li&gt;
-&lt;/ol&gt;
-&lt;h2&gt;docker 简介&lt;/h2&gt;
-&lt;h3&gt;什么是docker？&lt;/h3&gt;
-&lt;p&gt;The Docker daemon（dockerd） docker服务端。主要功能是管理image container network等&lt;/p&gt;
-&lt;p&gt;The Docker client（docker） Docker前端。大部分用户通过docker前端来操作docker。主要功能是和dockerd通讯。&lt;/p&gt;
-&lt;p&gt;Docker registries 类似git，提供pull push commit tag等功能。主要是对docker image进行版本管理。&lt;/p&gt;
-&lt;p&gt;Images 只读模板，类似虚拟机镜像（win7+ie8;win7+ie10）&lt;/p&gt;
-&lt;p&gt;Containers 是 image 的可运行实例。&lt;/p&gt;
-&lt;h3&gt;什么是 gitlab runner？&lt;/h3&gt;
-&lt;p&gt;Runner是 gitlab ci cd 工作流钦定的执行套件。
-&lt;img src=&quot;gitlab_runner.png&quot; alt=&quot;gitlab_runner&quot; /&gt;&lt;/p&gt;
-&lt;h3&gt;不同 executor 有什么区别&lt;/h3&gt;
-&lt;p&gt;&lt;img src=&quot;executor.png&quot; alt=&quot;executor&quot; /&gt;&lt;/p&gt;
-&lt;h2&gt;改造&lt;/h2&gt;
-&lt;h3&gt;制作前端构建环境 docker 镜像&lt;/h3&gt;
-&lt;p&gt;俺们吧所需的全部软件，安装到 docker 镜像里面，写成 docker file&lt;/p&gt;
-&lt;p&gt;再上传到公司的 docker harbor 镜像仓库&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;docker_harbor.png&quot; alt=&quot;docker_harbor&quot; /&gt;&lt;/p&gt;
-&lt;h3&gt;注册 docker gitlab runner 到项目&lt;/h3&gt;
-&lt;h3&gt;迁移 1000+ 行 makefile 构建到 node script&lt;/h3&gt;
-&lt;p&gt;&lt;img src=&quot;yaml.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
-&lt;h2&gt;最终效果&lt;/h2&gt;
-&lt;p&gt;CI 流水线平均用时缩短 90%&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;new_ci.png&quot; alt=&quot;new_ci&quot; /&gt;&lt;/p&gt;
-</content:encoded></item><item><title>巨型项目重构记录（框架）</title><link>https://dabuside.github.io/posts/refactor_a_big_project_framework/</link><guid isPermaLink="true">https://dabuside.github.io/posts/refactor_a_big_project_framework/</guid><description>Ext 迁移 Vue</description><pubDate>Mon, 21 Mar 2022 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
-&lt;h2&gt;概要&lt;/h2&gt;
-&lt;p&gt;项目使用的 Ext 框架已经有10年以上历史。目前前端界知道使用过该框架的人非常少，而且难度大，导致上手成本非常高。一个从来没有做到 Ext 的新手至少要熟悉一个月以上，也只能处理纯粹的表单表格这种页面，对于稍微炫一点的页面无能为力，这时效率就非常低了。此前由于这些原因也导致人员培养困难、招不到人接手、公司内部只有少数前端熟悉该框架、新人较排斥。业务组之间协调人力由于框架上的差异也造成较大风险。&lt;/p&gt;
-&lt;h2&gt;行动&lt;/h2&gt;
-&lt;p&gt;重构不得不进行，有两种重构方式&lt;/p&gt;
-&lt;p&gt;首先，由 &lt;code&gt;Framework&lt;/code&gt; 提供的基础功能有&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;路由&lt;/li&gt;
-&lt;li&gt;全局数据&lt;/li&gt;
-&lt;li&gt;页面导航框架&lt;/li&gt;
-&lt;li&gt;全局告警&lt;/li&gt;
-&lt;li&gt;页面多开&lt;/li&gt;
-&lt;li&gt;10 more&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;Ext 嵌入 Vue&lt;/h3&gt;
-&lt;p&gt;Ext作为框架内嵌 vue&lt;/p&gt;
-&lt;p&gt;用简单代码来描述的话，仅需改造&lt;code&gt;LazyPageLoader&lt;/code&gt;，使得它可以创建一个空白节点，装载&lt;code&gt;vue示例&lt;/code&gt;上去，并在全局数据变化的时候强制让&lt;code&gt;VuePage&lt;/code&gt;去&lt;code&gt;reload&lt;/code&gt;&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;&amp;lt;ExtFramework&amp;gt;
-  &amp;lt;LazyPageLoader&amp;gt;
-    &amp;lt;ExtPage1 /&amp;gt;
-    &amp;lt;ExtPage2 /&amp;gt;
-    &amp;lt;ExtPage3 /&amp;gt;
-    &amp;lt;VuePage1 /&amp;gt;
-  &amp;lt;/LazyPageLoader&amp;gt;
-&amp;lt;/ExtFramework&amp;gt;;
+&lt;p&gt;https://chromewebstore.google.com/detail/anti-anti-debug/mnmnmcmdkigakhlfkcdimghndnmomfeo&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;image.png&quot; alt=&quot;img&quot; /&gt;&lt;/p&gt;
+</content:encoded></item><item><title>javascript 反调试</title><link>https://dabuside.github.io/posts/javascript_anti_debug/</link><guid isPermaLink="true">https://dabuside.github.io/posts/javascript_anti_debug/</guid><pubDate>Thu, 10 Mar 2022 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+&lt;h2&gt;背景&lt;/h2&gt;
+&lt;p&gt;&lt;code&gt;js&lt;/code&gt; 代码在客户端运行，&lt;code&gt;chrome dev tools&lt;/code&gt;提供了完善的调试能力。&lt;/p&gt;
+&lt;p&gt;假如要做一个考试系统或者学习系统，客户端代码必然掺杂许多内部实现逻辑，如题目下发，做题，提交答案等等。开发者肯定是不想让第三方了解内部实现原理。&lt;/p&gt;
+&lt;p&gt;这里介绍几种 &lt;code&gt;js&lt;/code&gt; 反调试技术。如检测调试到就上报系统、检测调试到页面就清空不运行等等，增大破解难度。&lt;/p&gt;
+&lt;p&gt;:::tip
+当破解成本大于自身信息价值的时候，那么就满足了计算安全，破解者就少。
+:::&lt;/p&gt;
+&lt;h2&gt;Time Diff&lt;/h2&gt;
+&lt;pre&gt;&lt;code&gt;var startTime = performance.now();
+startMaliciousCode();
+var stopTime = performance.now();
+if ((stopTime - startTime) &amp;gt; 1000) {
+    alert(&quot;Debugger detected!&quot;)
+}
 &lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;Chrome Getter&lt;/h2&gt;
+&lt;pre&gt;&lt;code&gt;let div = document.createElement(&apos;div&apos;);
+console.log(div);
+Object.defineProperty(div, &quot;id&quot;, {get: () =&amp;gt; { alert(&quot;Dev Tools detected!&quot;); }});
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;Code Integrity&lt;/h2&gt;
+&lt;pre&gt;&lt;code&gt;function hashCode (s) {
+    var hash = 0;
+    if (s.length == 0) {
+        return hash;
+    }
+    for (var i = 0; i &amp;lt; s.length; i++) {
+        var char = s.charCodeAt(i);
+        hash = ((hash&amp;lt;&amp;lt;5)-hash)+char;
+        hash = hash &amp;amp; hash; // Convert to 32bit integer
+    }
+    return hash;
+}
+
+function start() {
+    alert(&apos;steal cookies!&apos;);
+}
+
+function main() {
+    if (hashCode(start.toString()) !== -1968638942) return;
+    start();
+}
+
+main()
+&lt;/code&gt;&lt;/pre&gt;
+</content:encoded></item><item><title>从页面元素定位到源码位置</title><link>https://dabuside.github.io/posts/ext-dev-tools/</link><guid isPermaLink="true">https://dabuside.github.io/posts/ext-dev-tools/</guid><description>ext dev tools</description><pubDate>Tue, 22 Jun 2021 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+&lt;h2&gt;快乐划水&lt;/h2&gt;
+&lt;p&gt;今天上班划水，看到一个很有意思的文章&lt;a href=&quot;https://juejin.cn/post/6901466406823575560&quot;&gt;我点了页面上的元素，VSCode 乖乖打开了对应的组件？原理揭秘。&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;虽然&lt;code&gt;vue-dev-tools&lt;/code&gt;早就支持这个功能，但是看到这个&lt;code&gt;react&lt;/code&gt;版本的实现的细节，我才知道原理，简单概况一下&lt;/p&gt;
 &lt;ol&gt;
-&lt;li&gt;前期风险较小，不需要改原始的项目框架，只针对新的模块创建一个 Ext 容器将 Vue 挂载进去&lt;/li&gt;
-&lt;li&gt;最终并不能将 Ext 框架舍弃，首先你还是得会用 Ext 去创建一个页面&lt;/li&gt;
-&lt;li&gt;项目里面很多复杂的业务组件，换vue不现实；不换最终将变成Ext里面插入vue，vue里面又插入Ext&lt;/li&gt;
-&lt;li&gt;后面如果像去掉 Ext 外壳将对整个项目产生较大风险，测试量大。&lt;/li&gt;
+&lt;li&gt;在编译的过程中，&lt;code&gt;babel&lt;/code&gt; 解析 &lt;code&gt;ast&lt;/code&gt;，遇到 &lt;code&gt;JSXOpeningElement&lt;/code&gt; 这个 &lt;code&gt;node&lt;/code&gt; 的 &lt;code&gt;type&lt;/code&gt; 的时候，注入当前源码行、列、文件到节点信息&lt;code&gt;fiber node&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;外部通过 &lt;code&gt;chrome插件&lt;/code&gt; 或者 用户代码注入一个事件，用户手动触发点击节点，从用户点击的节点中查找&lt;em&gt;步骤1&lt;/em&gt;中注入的信息，如果找到了，那么往本机发送一个请求&lt;/li&gt;
+&lt;li&gt;本机启动一个服务。用于接受上述&lt;em&gt;步骤2&lt;/em&gt;发来的请求。当接受到请求的时候，监测本机常用的 &lt;code&gt;IDE&lt;/code&gt; 进程是否打开，调用系统命令打开对应 &lt;code&gt;IDE&lt;/code&gt; ，若都没找到则 fallback 记事本打开&lt;/li&gt;
 &lt;/ol&gt;
-&lt;h3&gt;Vue 嵌入 Ext&lt;/h3&gt;
-&lt;p&gt;Ext作为框架内嵌 vue&lt;/p&gt;
-&lt;p&gt;则需要改造全部由&lt;code&gt;Framework&lt;/code&gt;提供的能力，但是改造的也会更彻底&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;&amp;lt;VueFramework&amp;gt;
-  &amp;lt;LazyPageLoader&amp;gt;
-    &amp;lt;VuePage1 /&amp;gt;
-    &amp;lt;ExtLoader&amp;gt;
-      &amp;lt;ExtPage1 /&amp;gt;
-    &amp;lt;/ExtLoader&amp;gt;
-    &amp;lt;ExtLoader&amp;gt;
-      &amp;lt;ExtPage2 /&amp;gt;
-    &amp;lt;/ExtLoader&amp;gt;
-  &amp;lt;/LazyPageLoader&amp;gt;
-&amp;lt;/VueFramework&amp;gt;;
+&lt;p&gt;:::NOTE
+吐槽一下，我测试的时候怎么经常 fallback 到记事本打开，我 IDE 开着呢
+:::&lt;/p&gt;
+&lt;h2&gt;简单实现&lt;/h2&gt;
+&lt;p&gt;现在项目中用的都是&lt;code&gt;Ext&lt;/code&gt;，老东西是没有 &lt;code&gt;dev-tools&lt;/code&gt; 的，找页面代码也是十分痛苦，我也准备搞一个自己的 &lt;code&gt;ext-dev-tool&lt;/code&gt; 插件&lt;/p&gt;
+&lt;p&gt;整体流程与上述类似&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;dev&lt;/code&gt; 场景，在 &lt;code&gt;babel&lt;/code&gt; 编译的过程中，遇到 &lt;code&gt;new&lt;/code&gt; 组件的声明语句的时候、遇到 &lt;code&gt;xtype&lt;/code&gt; 节点声明的时候，注入当前源码行、列、文件到节点信息&lt;/li&gt;
+&lt;li&gt;用户触发 &lt;code&gt;dev-tool&lt;/code&gt; 查询，使用&lt;code&gt;closest()&lt;/code&gt;定位到最近的元素，通过&lt;code&gt;Ext.get(id)&lt;/code&gt;获得组件实例&lt;/li&gt;
+&lt;li&gt;在实例上查找1中注入的源码位置信息，若没有查到，则查询当前节点的父节点，直到父节点是 &lt;code&gt;body&lt;/code&gt; 为止&lt;/li&gt;
+&lt;li&gt;在 &lt;code&gt;webpack devserver&lt;/code&gt; 接受上述3发送来的源码位置信息，调用命令行使用 &lt;code&gt;websotrm&lt;/code&gt; 打开文件&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;webstorm64.exe [--line &amp;lt;number&amp;gt;] [--column &amp;lt;number&amp;gt;] &amp;lt;path ...&amp;gt;&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;咱们的组件声明场景大致如下&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;xtype.png&quot; alt=&quot;xtype&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;简单的注入 &lt;code&gt;babel&lt;/code&gt; 插件实现&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;babel.png&quot; alt=&quot;babel&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;至于&lt;code&gt;dev server&lt;/code&gt; 接受请求自动打开 IDE，适配不同 IDE 命令行的文件、loc位置信息传参，直接抄 &lt;a href=&quot;https://github.com/yyx990803/launch-editor&quot;&gt;vite源码实现&lt;/a&gt;，真是方便，感谢yyx&lt;/p&gt;
+&lt;p&gt;实测，最终大概有 70% 的节点可以被注入源码信息，剩下 30% 的节点创造语句太复杂了，就不注入了。。。&lt;/p&gt;
+</content:encoded></item><item><title>自动分析代码改动影响面</title><link>https://dabuside.github.io/posts/dependency_analyze/</link><guid isPermaLink="true">https://dabuside.github.io/posts/dependency_analyze/</guid><description>dependency analyze</description><pubDate>Sat, 15 May 2021 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+&lt;h2&gt;前言&lt;/h2&gt;
+&lt;p&gt;大项目规矩实在太多了，修 &lt;code&gt;bug&lt;/code&gt; 需要详细描述问题根因，如何解决，测试步骤，影响范围，是否自测。经常上库几行代码，上库描述信息要写&lt;strong&gt;半小时&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;其中，前端对于其他页面的影响是这样规定的。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;如果修改了&lt;code&gt;common_components&lt;/code&gt;中的全局组件，则需要对&lt;strong&gt;所有引用到组件的页面&lt;/strong&gt;进行测试，并列出所有影响到的页面给到测试&lt;/li&gt;
+&lt;li&gt;如果仅修改了某个页面的内容，则需测试对应页面&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;项目的目录结构大致如下&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;src/
+├── common_components/
+│   ├── global_component1.js
+│   └── global_component2.js
+└── pages/
+    ├── page1/
+    │   ├── index.js
+    │   ├── local_component1.js
+    │   └── local_component2.js
+    └── page2/
+        ├── index.js
+        ├── local_component3.js
+        └── local_component4.js
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;问题&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;如果一些全局组件的被引用页面比较多，人工查询会非常耗时，而且容易漏&lt;/li&gt;
+&lt;li&gt;随着页面的上线/下线，有些全局组件，实际上只有1处引用，没有全局组件的含义了。那么开发人员和审核人员不用费时费力找引用关系了&lt;/li&gt;
+&lt;li&gt;有些开发不守规矩，本地组件也存在全局组件类似的功能，比如 &lt;code&gt;page1&lt;/code&gt; 页面下使用了 &lt;code&gt;page2&lt;/code&gt; 目录中的 &lt;code&gt;local_component&lt;/code&gt; 组件&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;思考&lt;/h2&gt;
+&lt;p&gt;由于代码比较统一，都是用 &lt;code&gt;CommonJS&lt;/code&gt; 处理的模块引用关系，想写一个工具处理这些引用分析，自动输出修改测试建议&lt;/p&gt;
+&lt;p&gt;经过一番搜索，了解到有一个叫&lt;a href=&quot;https://github.com/pahen/madge&quot;&gt;madge&lt;/a&gt;的工具，可以自动分析 &lt;code&gt;CJS&lt;/code&gt; 和 &lt;code&gt;ESM&lt;/code&gt; 的文件引用关系&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;./madge.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;直接进行 &lt;code&gt;API&lt;/code&gt; 调用的话，可以得到一个一维数组的文件直接引用关系&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;{
+  &quot;src/pages/page1/index.js&quot;: [
+    &quot;src/pages/page1/local_component1.js&quot;,
+    &quot;src/pages/page1/local_component2.js&quot;,
+    &quot;src/common_components/global_component1.js&quot;
+  ],
+  &quot;src/pages/page1/index.js&quot;: [
+    &quot;src/pages/page1/local_component3.js&quot;,
+    &quot;src/pages/page1/local_component4.js&quot;
+  ]
+}
 
 &lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;我们吧这里的样式文件（css，less）去掉，再把这个一维数组组装成引用链，深度1的节点为直接引用，深度2的节点以下的链则为间接引用&lt;/p&gt;
+&lt;p&gt;这样，从一个或多个改动的文件，可以定位到最终影响的某个路由页面。&lt;/p&gt;
+&lt;p&gt;那么，根据项目的路由表，做出引用链终点数组，如果引用链索引到上述的某个路由文件，则输出对应的路由名称&lt;/p&gt;
+&lt;p&gt;则每个改动文件可以对应到如下三种情况&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;找到找到一个或多个最终路由目录&lt;/li&gt;
+&lt;li&gt;没有文件引用该文件，或者该文件最终没有被路由引用可能是这个文件是项目的冗余文件，或者路由入口被暂时注释导致&lt;/li&gt;
+&lt;li&gt;出现循环引用，中止递归待排查&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;优点：&lt;/p&gt;
 &lt;ol&gt;
-&lt;li&gt;可将复杂的Ext业务组件直接用Vue包裹起来，不需要特意去维护。&lt;/li&gt;
-&lt;li&gt;风险前移，只要前期预研方案产出充分，后期将基本不会对项目产生不可预知的风险，最终可实现逐步全部替换成新框架。&lt;/li&gt;
-&lt;li&gt;需要将原项目中所有以前的Ext载入流程全换成vue&lt;/li&gt;
-&lt;li&gt;原渲染形式将受较大影响&lt;/li&gt;
+&lt;li&gt;在流水线上做改动，不影响原来任何功能。&lt;/li&gt;
+&lt;li&gt;自动化部分功能。由以前的提交人自行描述改动分析改为自动化分析改动影响面。节省了人员时间。&lt;/li&gt;
+&lt;li&gt;不限制代码语言、代码仓。如需在其他产品线引入功能。仅需修改输出路由表函数即可。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;方案一属于风险前移型，前期做好充分的工作，后期将随心所欲；方案二属于风险后置型，要不就一直依附在Ext框架上，要不就后期处理原framework的逻辑&lt;/p&gt;
+&lt;p&gt;缺点：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;自动化程度不足。只有部分自动化。输出的是程序分析的改动影响路由。具体如何影响，还是需要人工判断。&lt;/li&gt;
+&lt;li&gt;存在无法检测到的场景。如&lt;code&gt;EXT&lt;/code&gt;，&lt;code&gt;windows&lt;/code&gt;等全局变量的使用。那么无法确定影响面。&lt;/li&gt;
+&lt;li&gt;存在无法检测到的场景，如动态引用，&lt;code&gt;require(var)&lt;/code&gt;, &lt;code&gt;require.context()&lt;/code&gt;。那么无法识别到当前文件的完整引用关系数据。&lt;/li&gt;
+&lt;li&gt;粒度粗。思考能否以函数、变量为维度去分析改动影响面。插桩？istanbul？&lt;/li&gt;
+&lt;/ol&gt;
+</content:encoded></item><item><title>Babel 编译的 loose 模式简述</title><link>https://dabuside.github.io/posts/babel_loose_mode/</link><guid isPermaLink="true">https://dabuside.github.io/posts/babel_loose_mode/</guid><description>babel loose mode</description><pubDate>Wed, 20 Jan 2021 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+&lt;h2&gt;前言&lt;/h2&gt;
+&lt;p&gt;我们都知道，&lt;code&gt;babel&lt;/code&gt; 可以将 &lt;code&gt;es6&lt;/code&gt; 的代码转换为 &lt;code&gt;es5&lt;/code&gt; 的代码。其中&lt;code&gt;presets&lt;/code&gt; 有两种模式可以选择。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;将代码转换为最接近 &lt;code&gt;es6&lt;/code&gt; 规范的正常模式 &lt;code&gt;loose: false&lt;/code&gt;，他能保证转换前后的语义是 99% 一致的&lt;/li&gt;
+&lt;li&gt;将代码转换为更简单的 &lt;code&gt;es5&lt;/code&gt; 模式 &lt;code&gt;loose: true&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;我们项目用的是 &lt;code&gt;loose: true&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;我们举一个具体的例子&lt;/p&gt;
+&lt;h2&gt;ES6 原生模式&lt;/h2&gt;
+&lt;p&gt;下面 &lt;code&gt;es6&lt;/code&gt; 的 &lt;code&gt;class&lt;/code&gt; 语法&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;运行结果为控制台输出&lt;code&gt;x,y&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;pre&gt;&lt;code&gt;class Point {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    toString() {
+        return `(${this.x}, ${this.y})`;
+    }
+}
+const point = new Point(1,2);
+
+//es6规范规定，class上面的方法是不可枚举的
+for( let i in point ) { console.log(i) } //x,y
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;宽松模式&lt;/h2&gt;
+&lt;p&gt;如果宽松模式 &lt;code&gt;loose:true&lt;/code&gt; 模式转换的代码&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;运行结果为控制台输出&lt;code&gt;x,y,toString&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;pre&gt;&lt;code&gt;var Point = /*#__PURE__*/function () {
+  &quot;use strict&quot;;
+
+  function Point(x, y) {
+    this.x = x;
+    this.y = y;
+  }
+  var _proto = Point.prototype;
+  _proto.toString = function toString() {
+    return &quot;(&quot; + this.x + &quot;, &quot; + this.y + &quot;)&quot;;
+  };
+  return Point;
+}();
+var point = new Point(1, 2);
+
+for (var i in point) {
+  console.log(i);
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;严格模式&lt;/h2&gt;
+&lt;p&gt;如果是严格模式 &lt;code&gt;loose:false&lt;/code&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;运行结果为控制台输出&lt;code&gt;x,y&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;pre&gt;&lt;code&gt;function _typeof(o) { &quot;@babel/helpers - typeof&quot;; return _typeof = &quot;function&quot; == typeof Symbol &amp;amp;&amp;amp; &quot;symbol&quot; == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o &amp;amp;&amp;amp; &quot;function&quot; == typeof Symbol &amp;amp;&amp;amp; o.constructor === Symbol &amp;amp;&amp;amp; o !== Symbol.prototype ? &quot;symbol&quot; : typeof o; }, _typeof(o); }
+require(&quot;core-js/modules/es.symbol.js&quot;);
+require(&quot;core-js/modules/es.symbol.description.js&quot;);
+require(&quot;core-js/modules/es.symbol.iterator.js&quot;);
+require(&quot;core-js/modules/es.symbol.to-primitive.js&quot;);
+require(&quot;core-js/modules/es.error.cause.js&quot;);
+require(&quot;core-js/modules/es.array.concat.js&quot;);
+require(&quot;core-js/modules/es.array.iterator.js&quot;);
+require(&quot;core-js/modules/es.date.to-primitive.js&quot;);
+require(&quot;core-js/modules/es.number.constructor.js&quot;);
+require(&quot;core-js/modules/es.object.to-string.js&quot;);
+require(&quot;core-js/modules/es.string.iterator.js&quot;);
+require(&quot;core-js/modules/web.dom-collections.iterator.js&quot;);
+function _classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError(&quot;Cannot call a class as a function&quot;); }
+function _defineProperties(e, r) { for (var t = 0; t &amp;lt; r.length; t++) { var o = r[t]; o.enumerable = o.enumerable || !1, o.configurable = !0, &quot;value&quot; in o &amp;amp;&amp;amp; (o.writable = !0), Object.defineProperty(e, _toPropertyKey(o.key), o); } }
+function _createClass(e, r, t) { return r &amp;amp;&amp;amp; _defineProperties(e.prototype, r), t &amp;amp;&amp;amp; _defineProperties(e, t), Object.defineProperty(e, &quot;prototype&quot;, { writable: !1 }), e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, &quot;string&quot;); return &quot;symbol&quot; == _typeof(i) ? i : i + &quot;&quot;; }
+function _toPrimitive(t, r) { if (&quot;object&quot; != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || &quot;default&quot;); if (&quot;object&quot; != _typeof(i)) return i; throw new TypeError(&quot;@@toPrimitive must return a primitive value.&quot;); } return (&quot;string&quot; === r ? String : Number)(t); }
+var Point = /*#__PURE__*/function () {
+  &quot;use strict&quot;;
+
+  function Point(x, y) {
+    _classCallCheck(this, Point);
+    this.x = x;
+    this.y = y;
+  }
+  return _createClass(Point, [{
+    key: &quot;toString&quot;,
+    value: function toString() {
+      return &quot;(&quot;.concat(this.x, &quot;, &quot;).concat(this.y, &quot;)&quot;);
+    }
+  }]);
+}();
+var point = new Point(1, 2);
+for (var i in point) {
+  console.log(i);
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;a href=&quot;https://babeljs.io/repl#?browsers=ie%2011&amp;amp;build=&amp;amp;builtIns=usage&amp;amp;corejs=3.21&amp;amp;spec=false&amp;amp;loose=false&amp;amp;code_lz=MYGwhgzhAEAKD2BLAdgF2gbwFDV9Y8yEqATgK7CrwkAUAHgDTQCeAlJjnl6gBaIQA6OtAC80OgG5OXXL34DmollK4BfadCoBlUigDmNdthl4SAU1RkSyaAAMaAEgxzBdVUycuFq1rZV51dQIidAAHJDQlZDMAdzgI1BoARgYAJlYpLAAzahpoEAtoRCKbcJR0I3xCCHgCgRB4A0R2VWggA&amp;amp;debug=false&amp;amp;forceAllTransforms=false&amp;amp;modules=false&amp;amp;shippedProposals=false&amp;amp;evaluate=false&amp;amp;fileSize=false&amp;amp;timeTravel=false&amp;amp;sourceType=script&amp;amp;lineWrap=false&amp;amp;presets=env%2Cstage-3&amp;amp;prettier=false&amp;amp;targets=&amp;amp;version=7.24.10&amp;amp;externalPlugins=%40babel%2Fplugin-transform-parameters%407.23.3&amp;amp;assumptions=%7B%7D&quot;&gt;repl-link&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;我们可以观察到，宽松模式产生了比较简单的 &lt;code&gt;es5&lt;/code&gt; 代码，但是和规范定义有些差别。正常模式则会将这些方法定义翻译为 &lt;code&gt;Object.defineProperty&lt;/code&gt; ，并设置成不可枚举，和直接运行 &lt;code&gt;es6&lt;/code&gt; 代码得到相同的结果。&lt;/p&gt;
+&lt;h2&gt;总结&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;loose&lt;/code&gt; 模式可以产生更简单的代码，类似手写 &lt;code&gt;es6&lt;/code&gt; ，运行效率更高。如果后续使用 &lt;code&gt;es6&lt;/code&gt; 原生模式运行项目，可能会有意想不到的&lt;strong&gt;bug&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;正常模式使用复杂的 &lt;code&gt;es5&lt;/code&gt; 代码去模拟 &lt;code&gt;es6&lt;/code&gt; 的规范，运行效率稍稍下降，但如果后续使用 &lt;code&gt;es6&lt;/code&gt; 原生模式运行项目，行为基本上是一致的。&lt;/li&gt;
+&lt;/ul&gt;
+</content:encoded></item><item><title>在 Ext 中使用 JSX</title><link>https://dabuside.github.io/posts/jsx_in_ext_docs/</link><guid isPermaLink="true">https://dabuside.github.io/posts/jsx_in_ext_docs/</guid><description>ext in jsx</description><pubDate>Thu, 30 Apr 2020 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+&lt;h2&gt;前言&lt;/h2&gt;
+&lt;p&gt;Ext 这个框架真的不好用。。。&lt;/p&gt;
+&lt;p&gt;平常就是用一大串 &lt;code&gt;json&lt;/code&gt; 去渲染一个表单，&lt;code&gt;json&lt;/code&gt; 这个格式对人实在不友好，只要内容一多，马上眼花缭乱&lt;/p&gt;
+&lt;p&gt;比如一个简单的 &lt;code&gt;radiogroup&lt;/code&gt; 的声明 &lt;code&gt;json&lt;/code&gt; 如下。眼睛都要看花了&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;form.items = [{
+  xtype: &quot;RadioGroup&quot;,
+  itemId: &quot;ext-jsx&quot;,
+  vmodel: long_varable_name,
+  name: _(&apos;nice boat&apos;),
+  items: [{
+    xtype: &quot;Radio&quot;,
+    checkedValue: &quot;A&quot;,
+    defaultChecked: true
+  }, {
+    xtype: &quot;Radio&quot;,
+    checkedValue: &quot;B&quot;
+  }, {
+    xtype: &quot;Radio&quot;,
+    checkedValue: &quot;C&quot;
+  }, {
+    xtype: &quot;RadioGroup&quot;,
+    items: [{
+      xtype: &quot;Radio&quot;,
+      checkedValue: &quot;D&quot;
+    }, {
+      xtype: &quot;Radio&quot;,
+      checkedValue: &quot;E&quot;,
+      items: [{
+        xtype: &quot;myCustomInnerXtype&quot;
+      }]
+    }]
+  }]
+}, new Grid({
+  ext_in_jsx: &apos;awesome&apos;
+})];
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;上一份工作用的是 &lt;code&gt;react&lt;/code&gt;，我还是觉得类 &lt;code&gt;html&lt;/code&gt; 的语言同来描述页面最适合不过了&lt;/p&gt;
+&lt;p&gt;如果上述的 &lt;code&gt;json&lt;/code&gt; 用 &lt;code&gt;jsx&lt;/code&gt; 语法来描述的话，只需要 14 行，瞬间少了一半多有没有&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;form.items =
+&amp;lt;&amp;gt;
+  &amp;lt;RadioGroup itemId=&quot;ext-jsx&quot; vmodel={long_varable_name} name={_(&apos;nice boat&apos;)}&amp;gt;
+    &amp;lt;Radio checkedValue=&quot;A&quot; defaultChecked&amp;gt;&amp;lt;/Radio&amp;gt;
+    &amp;lt;Radio checkedValue=&quot;B&quot;&amp;gt;&amp;lt;/Radio&amp;gt;
+    &amp;lt;Radio checkedValue=&quot;C&quot;&amp;gt;&amp;lt;/Radio&amp;gt;
+    // i am comment
+    &amp;lt;RadioGroup&amp;gt;
+      &amp;lt;Radio checkedValue=&quot;D&quot;&amp;gt;&amp;lt;/Radio&amp;gt;
+      &amp;lt;Radio checkedValue=&quot;E&quot;&amp;gt;&amp;lt;myCustomInnerXtype/&amp;gt;&amp;lt;/Radio&amp;gt;
+    &amp;lt;/RadioGroup&amp;gt;
+  &amp;lt;/RadioGroup&amp;gt;
+  {new Grid({ext_in_jsx: &apos;awesome&apos;})}
+&amp;lt;/&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;自己写了一个 &lt;code&gt;babel&lt;/code&gt; 插件，可以将 &lt;code&gt;jsx&lt;/code&gt; 语法编译成类似 &lt;code&gt;Ext&lt;/code&gt; 中的表单渲染 &lt;code&gt;json&lt;/code&gt; 对象&lt;/p&gt;
+&lt;h2&gt;效果&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;preview.png&quot; alt=&quot;preview&quot; /&gt;&lt;/p&gt;
+&lt;h2&gt;在线玩一下&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&quot;https://dabuside.github.io/jsx_in_ext/&quot;&gt;https://dabuside.github.io/jsx_in_ext/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;::github{repo=&quot;dabuside/jsx_in_ext&quot;}&lt;/p&gt;
+</content:encoded></item><item><title>纯浏览器完成手写数字识别</title><link>https://dabuside.github.io/posts/mnist_broswer_docs/</link><guid isPermaLink="true">https://dabuside.github.io/posts/mnist_broswer_docs/</guid><description>mnist-broswer-pure</description><pubDate>Thu, 30 Nov 2017 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+&lt;h2&gt;前言&lt;/h2&gt;
+&lt;p&gt;组里要求全员学习AI&lt;/p&gt;
+&lt;p&gt;学了一点 &lt;a href=&quot;https://cs231n.stanford.edu/index.html&quot;&gt;Computer Vision&lt;/a&gt; 和 &lt;a href=&quot;https://www.tensorflow.org/js&quot;&gt;TensorFlow&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;秉着试一试的精神，用了&lt;code&gt;tfjs&lt;/code&gt;做了一个纯浏览器版本的手写数字识别&lt;/p&gt;
+&lt;p&gt;训练部分与预测部分均在浏览器端完成&lt;/p&gt;
+&lt;h2&gt;效果&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;preview.gif&quot; alt=&quot;preview&quot; /&gt;&lt;/p&gt;
+&lt;h2&gt;在线玩一下&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&quot;https://dabuside.github.io/mnist-browser/&quot;&gt;https://dabuside.github.io/mnist-browser/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;::github{repo=&quot;dabuside/mnist-browser&quot;}&lt;/p&gt;
 </content:encoded></item></channel></rss>

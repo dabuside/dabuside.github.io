@@ -637,7 +637,7 @@ import { IxForm, IxFormItem, IxInput, IxIcon } from &apos;@idux-vue2&apos;;
 &lt;pre&gt;&lt;code&gt;import(&quot;foo.json&quot;, { with: { type: &quot;json&quot; } })
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;:::CAUTION
-&lt;code&gt;Eslint&lt;/code&gt;不支持解析改语法，因为其仅支持 &lt;code&gt;State 4&lt;/code&gt;阶段的提案&lt;/p&gt;
+&lt;code&gt;Eslint&lt;/code&gt;不支持解析该语法，因为其仅支持 &lt;code&gt;State 4&lt;/code&gt;阶段的提案&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;Typesctipt&lt;/code&gt;支持该语法&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;Chrome 123&lt;/code&gt;以及&lt;code&gt;Node v20.10.0&lt;/code&gt;后原生支持该语法
 :::&lt;/p&gt;

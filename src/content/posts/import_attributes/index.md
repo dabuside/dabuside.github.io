@@ -56,7 +56,7 @@ import("foo.json", { with: { type: "json" } })
 ```
 
 :::CAUTION
-`Eslint`不支持解析改语法，因为其仅支持 `State 4`阶段的提案
+`Eslint`不支持解析该语法，因为其仅支持 `State 4`阶段的提案
 
 `Typesctipt`支持该语法
 

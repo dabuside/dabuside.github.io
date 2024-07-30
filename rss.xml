@@ -1,4 +1,184 @@
-<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>dabuside</title><description>blog</description><link>https://dabuside.github.io/</link><language>en</language><item><title>视觉稿生成代码</title><link>https://dabuside.github.io/posts/design_to_code/</link><guid isPermaLink="true">https://dabuside.github.io/posts/design_to_code/</guid><description>design to code</description><pubDate>Sat, 20 Jul 2024 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>dabuside</title><description>blog</description><link>https://dabuside.github.io/</link><language>en</language><item><title>单测中的代码行覆盖率是如何计算的</title><link>https://dabuside.github.io/posts/code_coverage_calculation/</link><guid isPermaLink="true">https://dabuside.github.io/posts/code_coverage_calculation/</guid><pubDate>Tue, 30 Jul 2024 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+&lt;h2&gt;什么是代码行覆盖率&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;./coverage_example.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;代码覆盖（英语：Code coverage）是软件测试中的一种度量，描述程序中源代码被测试的比例和程度，所得比例称为&lt;strong&gt;代码行覆盖率&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;它可以细分为&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;语句覆盖率 (Statements)&lt;/li&gt;
+&lt;li&gt;分支覆盖率 (Branches)&lt;/li&gt;
+&lt;li&gt;函数覆盖率 (Functions)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;如上图计算结果，即为执行&lt;code&gt;isEven(10)&lt;/code&gt;后的行覆盖率统计信息&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;isEven&lt;/code&gt;有两个分支，代码仅执行到&lt;code&gt;num % 2 === 0&lt;/code&gt;这个分支，故分支覆盖率 50%&lt;/li&gt;
+&lt;li&gt;共计两个函数&lt;code&gt;isEven&lt;/code&gt;与&lt;code&gt;isOdd&lt;/code&gt;，代码仅执行到一个行数，故函数覆盖率 50%&lt;/li&gt;
+&lt;li&gt;共计 14 行语句，有 6 行被执行到，故语句覆盖率 42% (不同方式计算的语句覆盖率有细微区别，如&lt;code&gt;{&lt;/code&gt;,&lt;code&gt;}&lt;/code&gt;花括号语句是否计算声明语句)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;源代码插桩&lt;/h2&gt;
+&lt;p&gt;大部分测试工具是基于 &lt;code&gt;istanbul&lt;/code&gt; 做源代码插桩的覆盖率检测，我们来探究下 &lt;code&gt;istanbul&lt;/code&gt; 的实现原理。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;istanbul&lt;/code&gt;官网是这样介绍的&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;istanbul&lt;/code&gt;使用行计数器来检测你的 ES5 和 ES2015+ JavaScript 代码，以便你可以跟踪单元测试对代码库的执行情况。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;接下来，我们将使用&lt;code&gt;babel-plugin-istanbul&lt;/code&gt;去给代码嵌入一些计数器&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;import Babel from &quot;@babel/core&quot;;
+import babelPluginIstanbul from &quot;babel-plugin-istanbul&quot;;
+
+const output = Babel.transform(`
+export function isEven(num) {
+  if (num % 2 === 0) {
+    return true;
+  } else {
+    return false;
+  }
+}
+isEven(10);
+  `, {
+  plugins: [babelPluginIstanbul],
+  filename:  &apos;demo.js&apos;
+}).code;
+
+console.log(output);
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;上述代码执行后，我们获得了插桩代码（简化版，增加可读性）&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;var coverageData = {
+  // 每个语句对应的原生代码块信息，这里省略
+  statementMap: {
+    0: {
+      start: {
+        line: 2,
+        column: 2,
+      },
+      end: {
+        line: 6,
+        column: 3,
+      },
+    },
+  // ...
+  // 省略其他 loc 信息
+  },
+  // 声明语句有 4 行
+  s: {
+    0: 0,
+    1: 0,
+    2: 0,
+    3: 0,
+  },
+  // 有 1 个函数声明
+  f: {
+    0: 0,
+  },
+  // 有 2 个分支声明
+  b: {
+    0: [0, 0],
+  },
+};
+function isEven(num) {
+  coverageData.f[0]++;
+  coverageData.s[0]++;
+  if (num % 2 === 0) {
+    coverageData.b[0][0]++;
+    coverageData.s[1]++;
+    return true;
+  } else {
+    coverageData.b[0][1]++;
+    coverageData.s[2]++;
+    return false;
+  }
+}
+coverageData.s[3]++;
+isEven(10);
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;我们可以看到，&lt;code&gt;coverageData&lt;/code&gt;中的&lt;code&gt;s&lt;/code&gt;,&lt;code&gt;f&lt;/code&gt;,&lt;code&gt;b&lt;/code&gt;分别对应之前的&lt;code&gt;Statements&lt;/code&gt;,&lt;code&gt;Functions&lt;/code&gt;,&lt;code&gt;Branches&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;即&lt;code&gt;istanbul&lt;/code&gt;通过一个&lt;code&gt;babel&lt;/code&gt;插件&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;先将源代码解析成&lt;code&gt;AST&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;遍历&lt;code&gt;AST&lt;/code&gt;节点，找到所有的函数声明节点、分支声明节点、语句声明节点，统计节点个数。提前做好数组初始化，生成原始 0 计数的&lt;code&gt;coverageData&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;进行&lt;code&gt;AST&lt;/code&gt;转换
+&lt;ol&gt;
+&lt;li&gt;在&lt;code&gt;AST&lt;/code&gt;的函数声明节点内，插入对应序号的&lt;code&gt;Functions&lt;/code&gt;计数器&lt;/li&gt;
+&lt;li&gt;在&lt;code&gt;AST&lt;/code&gt;的分支声明节点内，插入对应序号的&lt;code&gt;Branches&lt;/code&gt;计数器&lt;/li&gt;
+&lt;li&gt;在&lt;code&gt;AST&lt;/code&gt;的语句声明节点内，插入对应序号的&lt;code&gt;Statements&lt;/code&gt;计数器&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;将&lt;code&gt;AST&lt;/code&gt;序列化成插桩代码&lt;/li&gt;
+&lt;li&gt;执行上述插桩代码，若程序执行到某处，则会触发对应行的计数器++，未执行到的代码块对应的计数器数值则保持不变&lt;/li&gt;
+&lt;li&gt;最终可根据&lt;code&gt;coverageData&lt;/code&gt;中对应记录 1 或者以上的数值，除以全部计数器个数，获得对应覆盖率计算结果。&lt;/li&gt;
+&lt;li&gt;每个语句对应源代码的&lt;code&gt;loc&lt;/code&gt;位置信息，反应到对应的可视化面板展示&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;v8字节码插桩&lt;/h2&gt;
+&lt;p&gt;字节码插桩与源代码插桩类似，只不过是在v8对&lt;code&gt;javascript&lt;/code&gt;编译生成的&lt;code&gt;native code&lt;/code&gt;二进制码的部分插入对应计数器完成计数工作。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;./native_coverage.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;图例为访问&lt;code&gt;google.com&lt;/code&gt;页面进行的代码覆盖率检测。&lt;code&gt;google.com&lt;/code&gt;首页加载了总计&lt;code&gt;5.3mb&lt;/code&gt;的&lt;code&gt;css&lt;/code&gt;和&lt;code&gt;javascript&lt;/code&gt;资源，其中&lt;code&gt;2.5mb&lt;/code&gt;的资源代码被执行到。&lt;/p&gt;
+&lt;p&gt;我们发现，字节码插桩比源码插桩覆盖面更广，除了支持&lt;code&gt;javascript&lt;/code&gt;之外，还能支持&lt;code&gt;css&lt;/code&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;图例的 coverage 面板位于 F12 开发者工具 -&amp;gt; 右上角三个点更多 -&amp;gt; more tools -&amp;gt; coverage&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;v8提供了手动调用&lt;code&gt;JavaScript&lt;/code&gt;字节码覆盖率计算，步骤为&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;Profiler.startPreciseCoverage()&lt;/code&gt; 启用覆盖率收集，可选择进行调用计数（与二进制覆盖率相比）和块粒度（与函数粒度相比）；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Profiler.stopPreciseCoverage()&lt;/code&gt; 禁用收集并释放相关数据结构。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Profiler.takePreciseCoverage()&lt;/code&gt; 将收集到的覆盖率信息作为源范围列表以及相关的执行计数返回&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;上述可以获得一串&lt;code&gt;json&lt;/code&gt;结果，交由&lt;code&gt;v8-to-istanbul&lt;/code&gt;可将结果类型转换为上述&lt;code&gt;istanbul&lt;/code&gt;源码插桩一致的数据格式，并使用相同的UI进行展示结果。&lt;/p&gt;
+&lt;p&gt;v8字节码插桩参考实现 -- 代码节选自&lt;code&gt;@vitest/coverage-v8&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;import inspector from &apos;node:inspector&apos;;
+import { provider } from &apos;std-env&apos;;
+
+const session = new inspector.Session();
+function startCoverage() {
+  session.connect();
+  session.post(&quot;Profiler.enable&quot;);
+  session.post(&quot;Profiler.startPreciseCoverage&quot;, {
+    callCount: true,
+    detailed: true
+  });
+}
+async function takeCoverage() {
+  return new Promise((resolve, reject) =&amp;gt; {
+    session.post(&quot;Profiler.takePreciseCoverage&quot;, async (error, coverage) =&amp;gt; {
+      if (error) {
+        return reject(error);
+      }
+      const result = coverage.result.filter(filterResult);
+      resolve({ result });
+    });
+  });
+}
+function stopCoverage() {
+  session.post(&quot;Profiler.stopPreciseCoverage&quot;);
+  session.post(&quot;Profiler.disable&quot;);
+  session.disconnect();
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;特殊语法&lt;/h2&gt;
+&lt;p&gt;在实际业务场景中，有很多分支是不会被执行到的，只是代码实现预留，这些场景也被计算为未覆盖有些不合理。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;function getGenderChinese(gender){
+   if(gender === &apos;male&apos;){
+      return &apos;男&apos;
+   }
+   if(gender === &apos;female&apos;){
+      return &apos;女&apos;
+   }
+   // 假设所有数据都至多有上述两种 gender，那么这个 return 语句一直不会被执行到
+   // 行覆盖率就会提示这个语句未执行
+   return &apos;未知&apos;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;istanbul&lt;/code&gt;与&lt;code&gt;v8&lt;/code&gt;均提供了对应的注释语法来修正（逃避）检测&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;/* istanbul ignore if */
+/* v8 ignore next */
+/* v8 ignore next 3 */
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;不过这些语法注释语法在&lt;code&gt;vitest&lt;/code&gt;中并不会生效，因为&lt;code&gt;vitest&lt;/code&gt;使用&lt;code&gt;esbuild&lt;/code&gt;将&lt;code&gt;ts&lt;/code&gt;转换为&lt;code&gt;js&lt;/code&gt;再进行插桩，但是&lt;code&gt;esbuild&lt;/code&gt;在转码的过程中，会丢弃所有注释，导致&lt;code&gt;ignore&lt;/code&gt;语法不生效.且 &lt;code&gt;esbuild&lt;/code&gt;并不打算未来对其支持 &lt;a href=&quot;https://github.com/evanw/esbuild/issues/516&quot;&gt;issue&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;唯一的方法就是加上&lt;code&gt;@preserve&lt;/code&gt;语法&lt;code&gt;/* istanbul ignore file -- @preserve */&lt;/code&gt;，使得&lt;code&gt;esbuild&lt;/code&gt;保留该出注释。但是这样缺点也很明显，即这段注释会生成到最终的产物代码中。&lt;/p&gt;
+&lt;h2&gt;参考资料&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;https://istanbul.js.org/&lt;/li&gt;
+&lt;li&gt;https://v8.dev/blog/javascript-code-coverage&lt;/li&gt;
+&lt;li&gt;https://chromedevtools.github.io/devtools-protocol/tot/Profiler/#method-startPreciseCoverage&lt;/li&gt;
+&lt;/ul&gt;
+</content:encoded></item><item><title>视觉稿生成代码</title><link>https://dabuside.github.io/posts/design_to_code/</link><guid isPermaLink="true">https://dabuside.github.io/posts/design_to_code/</guid><description>design to code</description><pubDate>Sat, 20 Jul 2024 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
 &lt;h2&gt;前言&lt;/h2&gt;
 &lt;p&gt;最近，团队做了个视觉稿生成代码的工具。这个工具可以一键将 &lt;a href=&quot;https://mastergo.com/&quot;&gt;mastergo平台&lt;/a&gt; 设计稿平台的设计稿变成可用代码。与 mastergo 平台的开发人员对接的时候，他们都表示功能比他们自己的 d2c 还要好，笑。&lt;/p&gt;
 &lt;p&gt;整体工作流程是这样的&lt;/p&gt;
@@ -442,8 +622,8 @@ import { IxForm, IxFormItem, IxInput, IxIcon } from &apos;@idux-vue2&apos;;
 &lt;code&gt;Import Assertions&lt;/code&gt;语法提案在&lt;code&gt;v8引擎 v12.3&lt;/code&gt;实装，计划于&lt;code&gt;v12.6&lt;/code&gt;版本取消对应的支持。&lt;/p&gt;
 &lt;p&gt;2020 年 9 月，&lt;code&gt;Import Assertions&lt;/code&gt;提案更新由&lt;code&gt;Stage 2&lt;/code&gt;阶段进入&lt;code&gt;Stage 3&lt;/code&gt;阶段&lt;/p&gt;
 &lt;p&gt;2023 年 2 月，&lt;code&gt;Import Assertions&lt;/code&gt;提案更新为导入属性&lt;code&gt;Import Attributes&lt;/code&gt;，并从&lt;code&gt;Stage 3&lt;/code&gt;阶段撤回至&lt;code&gt;Stage 2&lt;/code&gt;，极为少见的撤回了多个浏览器引擎已经支持的特性语法提案&lt;/p&gt;
-&lt;p&gt;2023 年 3 月，&lt;code&gt;Import Assertions&lt;/code&gt;提案更新为&lt;code&gt;Import Attributes&lt;/code&gt;，并进入&lt;code&gt;Stage 3&lt;/code&gt;阶段&lt;/p&gt;
-&lt;p&gt;:::&lt;/p&gt;
+&lt;p&gt;2023 年 3 月，&lt;code&gt;Import Assertions&lt;/code&gt;提案更新为&lt;code&gt;Import Attributes&lt;/code&gt;，并进入&lt;code&gt;Stage 3&lt;/code&gt;阶段
+:::&lt;/p&gt;
 &lt;h3&gt;导入断言（Import Assertions）提案的初衷&lt;/h3&gt;
 &lt;p&gt;然而，有人担心在导入 &lt;code&gt;JSON&lt;/code&gt; 模块和无法执行代码的类似模块类型时可能会发生权限提升。当脚本导入它打算作为 &lt;code&gt;JSON&lt;/code&gt; 模块的内容时，如果响应服务器意外提供了不同的 &lt;code&gt;MIME&lt;/code&gt; 类型，则可能会导致代码意外执行。解决方案是在 &lt;code&gt;MIME&lt;/code&gt; 类型之外的某个地方以某种方式指示模块是 &lt;code&gt;JSON&lt;/code&gt;，或者一般来说，不执行。导入断言提供了这样做的方法。除了 &lt;code&gt;JSON&lt;/code&gt; 模块之外，受此安全问题阻止的拟议 &lt;code&gt;ES&lt;/code&gt; 模块类型还包括 &lt;code&gt;CSS&lt;/code&gt; 模块和可能的 &lt;code&gt;HTML&lt;/code&gt; 模块。&lt;/p&gt;
 &lt;h3&gt;导入断言（Import Assertions）存在的问题&lt;/h3&gt;
@@ -456,6 +636,11 @@ import { IxForm, IxFormItem, IxInput, IxIcon } from &apos;@idux-vue2&apos;;
 &lt;p&gt;动态导入&lt;/p&gt;
 &lt;pre&gt;&lt;code&gt;import(&quot;foo.json&quot;, { with: { type: &quot;json&quot; } })
 &lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;:::CAUTION
+&lt;code&gt;Eslint&lt;/code&gt;不支持解析改语法，因为其仅支持 &lt;code&gt;State 4&lt;/code&gt;阶段的提案&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;Typesctipt&lt;/code&gt;支持该语法&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;Chrome 123&lt;/code&gt;以及&lt;code&gt;Node v20.10.0&lt;/code&gt;后原生支持该语法
+:::&lt;/p&gt;
 &lt;h3&gt;差异与改进&lt;/h3&gt;
 &lt;ul&gt;
 &lt;li&gt;允许&lt;code&gt;Import Assertions&lt;/code&gt;导入属性影响模块加载&lt;/li&gt;

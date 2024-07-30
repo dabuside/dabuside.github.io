@@ -28,8 +28,8 @@ import json from "./foo.json" assert { type: "json" };
 2023 年 2 月，`Import Assertions`提案更新为导入属性`Import Attributes`，并从`Stage 3`阶段撤回至`Stage 2`，极为少见的撤回了多个浏览器引擎已经支持的特性语法提案
 
 2023 年 3 月，`Import Assertions`提案更新为`Import Attributes`，并进入`Stage 3`阶段
-
 :::
+
 
 ### 导入断言（Import Assertions）提案的初衷
 
@@ -54,6 +54,14 @@ import json from "./foo.json" with { type: "json" };
 ```
 import("foo.json", { with: { type: "json" } })
 ```
+
+:::CAUTION
+`Eslint`不支持解析改语法，因为其仅支持 `State 4`阶段的提案
+
+`Typesctipt`支持该语法
+
+`Chrome 123`以及`Node v20.10.0`后原生支持该语法
+:::
 
 ### 差异与改进
 

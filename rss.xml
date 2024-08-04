@@ -1,4 +1,308 @@
-<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>dabuside</title><description>blog</description><link>https://dabuside.github.io/</link><language>en</language><item><title>单测中的代码行覆盖率是如何计算的</title><link>https://dabuside.github.io/posts/code_coverage_calculation/</link><guid isPermaLink="true">https://dabuside.github.io/posts/code_coverage_calculation/</guid><pubDate>Tue, 30 Jul 2024 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>dabuside</title><description>blog</description><link>https://dabuside.github.io/</link><language>en</language><item><title>Vue文件是如何在浏览器中“运行”的</title><link>https://dabuside.github.io/posts/vue_compiler_template/</link><guid isPermaLink="true">https://dabuside.github.io/posts/vue_compiler_template/</guid><description>vue compiler for template</description><pubDate>Sun, 04 Aug 2024 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+&lt;h2&gt;引言&lt;/h2&gt;
+&lt;p&gt;在&lt;code&gt;Vue&lt;/code&gt;项目中，&lt;code&gt;.vue&lt;/code&gt;文件是最常见的组件定义方式，它将HTML、CSS和JavaScript整合到一个单一文件中，使开发和维护变得更加方便。然而，浏览器并不能直接理解&lt;code&gt;.vue&lt;/code&gt;文件，因此需要将其编译成标准的&lt;code&gt;JavaScript&lt;/code&gt;文件，才能在浏览器中运行。本文将深入探讨&lt;code&gt;Vue.js&lt;/code&gt;的编译过程，揭示&lt;code&gt;.vue&lt;/code&gt;文件是如何被转换为可以在浏览器中执行的&lt;code&gt;JavaScript&lt;/code&gt;代码的，从而帮助读者更好地理解和掌握&lt;code&gt;Vue.js&lt;/code&gt;的内部工作机制。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;&amp;lt;script setup&amp;gt;
+import { ref } from &apos;vue&apos;
+
+const msg = ref(&apos;Hello World!&apos;)
+&amp;lt;/script&amp;gt;
+
+&amp;lt;template&amp;gt;
+  &amp;lt;h1&amp;gt;{{ msg }}&amp;lt;/h1&amp;gt;
+  &amp;lt;input v-model=&quot;msg&quot; /&amp;gt;
+&amp;lt;/template&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;template 编译流程&lt;/h2&gt;
+&lt;p&gt;编译器其实只是一段程序，它用来将“一种语言 A”翻译成“另外一种语言 B”​。其中，语言 A 通常叫作源代码&lt;code&gt;source code&lt;/code&gt;​，语言 B 通常叫作目标代码&lt;code&gt;object code&lt;/code&gt; 或 &lt;code&gt;target code&lt;/code&gt;​。编译器将源代码翻译为目标代码的过程叫作编译&lt;code&gt;compile&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;./chart.png&quot; alt=&quot;i&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;可以看到，&lt;code&gt;Vue.js&lt;/code&gt;模板编译器的目标代码其实就是&lt;strong&gt;渲染函数&lt;/strong&gt;。
+详细而言，&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;Vue.js&lt;/code&gt; 模板编译器会首先对模板进行词法分析和语法分析，得到模板 &lt;code&gt;AST&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;接着，将模板 &lt;code&gt;AST &lt;/code&gt;转换&lt;code&gt;transform&lt;/code&gt;成 &lt;code&gt;JavaScript AST&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;最后，根据 &lt;code&gt;JavaScript AST&lt;/code&gt; 生成 &lt;code&gt;JavaScript&lt;/code&gt; 代码，即渲染函数代码。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;用代码来描述，就是&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;function compile(template: string): string {
+
+  const tokens = tokenlize(template);
+  const htmlAST = tokenToAST(tokens);
+  const jsAST = transform(tokens);
+  const renderFunctionCode = generate(jsAST);
+
+  return renderFunctionCode;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;我们这里来实现一个简单的 &lt;code&gt;compile&lt;/code&gt; 编译器&lt;/p&gt;
+&lt;h2&gt;parse&lt;/h2&gt;
+&lt;h3&gt;tokenlize&lt;/h3&gt;
+&lt;p&gt;举个例子，假设我们有如下模板：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;&amp;lt;h1&amp;gt;Hello &amp;lt;span&amp;gt;World&amp;lt;/span&amp;gt;&amp;lt;/h1&amp;gt;&amp;lt;h2&amp;gt;hi&amp;lt;/h2&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;这段模板会被解析为如下的&lt;code&gt;tokens&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;[
+  { type: &apos;tagOpen&apos;, value: &apos;h1&apos; },
+  { type: &apos;text&apos;, value: &apos;Hello &apos; },
+  { type: &apos;tagOpen&apos;, value: &apos;span&apos; },
+  { type: &apos;text&apos;, value: &apos;World&apos; },
+  { type: &apos;tagEnd&apos;, value: &apos;span&apos; },
+  { type: &apos;tagEnd&apos;, value: &apos;h1&apos; },
+  { type: &apos;tagOpen&apos;, value: &apos;h2&apos; },
+  { type: &apos;text&apos;, value: &apos;hi&apos; },
+  { type: &apos;tagEnd&apos;, value: &apos;h2&apos; }
+]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;那么，这是怎么实现的呢？&lt;/p&gt;
+&lt;p&gt;:::note
+FSM(Finite State Machines) 有限状态机，也叫有限状态自动机，是为研究有限内存的计算过程和某些语言类而抽象出的一种计算模型，它拥有有限个数量的状态，每个状态可以迁移到零个或多个状态，输入字串决定执行哪个状态的迁移。
+:::&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;./finate_state_machine.png&quot; alt=&quot;fsm&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;简单说，它有三个特征：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;状态总数（state）是有限的。&lt;/li&gt;
+&lt;li&gt;任一时刻，只处在一种状态之中。&lt;/li&gt;
+&lt;li&gt;某种条件下，会从一种状态转变（transition）到另一种状态。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;我们来实现一下，因为正则解析本质上就是&lt;strong&gt;有限状态机&lt;/strong&gt;，所以这里的实现不涉及正则表达式（仅实现个别状态解析与转换，非HTML语义完整实现）&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;function tokenizer(code: string) {
+  let state: State = State.init;
+  let chars: string[] = [];
+  const tokens: Token[] = [];
+  for (let i = 0; i &amp;lt; code.length; i++) {
+    const char = code[i];
+    switch (state) {
+      case State.init: {
+        if (char === &quot;&amp;lt;&quot;) {
+          state = State.tagOpen;
+        } else if (char) {
+          state = State.text;
+          chars.push(char);
+        }
+        break;
+      }
+      case State.tagOpen: {
+        if (char === &quot;/&quot;) {
+          state = State.tagEnd;
+        } else if (isAlpha(char)) {
+          chars.push(char);
+        } else if (char === &quot;&amp;gt;&quot;) {
+          tokens.push({
+            type: state,
+            value: chars.join(&quot;&quot;),
+          });
+          chars = [];
+          state = State.init;
+        }
+        break;
+      }
+      case State.tagEnd: {
+        if (isAlpha(char)) {
+          chars.push(char);
+        } else if (char === &quot;&amp;gt;&quot;) {
+          tokens.push({
+            type: state,
+            value: chars.join(&quot;&quot;),
+          });
+          chars = [];
+          state = State.init;
+        }
+        break;
+      }
+      case State.text: {
+        if (char === &quot;&amp;lt;&quot;) {
+          tokens.push({
+            type: &quot;text&quot;,
+            value: chars.join(&quot;&quot;),
+          });
+          chars = [];
+          state = State.tagOpen;
+        } else {
+          chars.push(char);
+        }
+        break;
+      }
+    }
+  }
+  return tokens;
+}
+
+function isAlpha(char: string) {
+  const charCode = char.charCodeAt(0);
+  return (
+    (charCode &amp;gt;= 65 &amp;amp;&amp;amp; charCode &amp;lt;= 90) || // Uppercase A-Z
+    (charCode &amp;gt;= 97 &amp;amp;&amp;amp; charCode &amp;lt;= 122) || // Lowercase a-z
+    (charCode &amp;gt;= 48 &amp;amp;&amp;amp; charCode &amp;lt;= 57) // Numbers 0-9
+  );
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3&gt;token to ast&lt;/h3&gt;
+&lt;p&gt;有了&lt;code&gt;token&lt;/code&gt;，我们还需将其解析为类似&lt;code&gt;html&lt;/code&gt;树结构的&lt;code&gt;AST&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;function tokenToAst(tokens: Token[]): AstNode {
+  const root: AstNode = {
+    type: &quot;root&quot;,
+    children: [],
+  };
+  const elementStack = [root];
+  while (tokens.length) {
+    const token = tokens.shift()!;
+    if (token.type === State.tagOpen) {
+      const currentStack = elementStack[elementStack.length - 1]!;
+      const astNode = {
+        type: token.value,
+        children: [],
+      };
+      currentStack.children.push(astNode);
+      elementStack.push(astNode);
+    } else if (token.type === State.tagEnd) {
+      elementStack.pop()!;
+    } else if (token.type === State.text) {
+      const astNode = {
+        type: &quot;text&quot;,
+        children: [],
+        value: token.value,
+      };
+      const currentStack = elementStack[elementStack.length - 1]!;
+      currentStack.children.push(astNode);
+    }
+  }
+  return root;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;输入上述&lt;code&gt;token&lt;/code&gt;为参数后，即可获得如下结果。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;{
+  type: &apos;root&apos;,
+  children: [
+    {
+      type: &apos;h1&apos;,
+      children: [
+        { type: &apos;text&apos;, children: [], value: &apos;Hello &apos; },
+        {
+          type: &apos;span&apos;,
+          children: [ { type: &apos;text&apos;, children: [], value: &apos;World&apos; } ]
+        }
+      ]
+    },
+    {
+      type: &apos;h2&apos;,
+      children: [ { type: &apos;text&apos;, children: [], value: &apos;hi&apos; } ]
+    }
+  ]
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;transform&lt;/h2&gt;
+&lt;p&gt;:::note
+本章节施工中
+:::&lt;/p&gt;
+&lt;p&gt;转换的本质就是将描述&lt;code&gt;html&lt;/code&gt;内容的AST转换成为描述&lt;code&gt;javascript&lt;/code&gt;的渲染函数&lt;code&gt;AST&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;type Context = {
+  parent: AstNode | undefined;
+  index: number;
+  replaceNode: (node: AstNode) =&amp;gt; void;
+  patchNode: (node: Partial&amp;lt;AstNode&amp;gt;) =&amp;gt; void;
+};
+
+type VisitFn = (node: AstNode, ctx: Context) =&amp;gt; void;
+
+function transform(ast: AstNode, enterFn: VisitFn, exitFn: VisitFn): AstNode {
+  const nodes = [ast];
+
+  const exitFns: (() =&amp;gt; void)[] = [];
+
+  const rootContext = makeContext(undefined, 0);
+
+  enterFn(ast, rootContext);
+
+  while (nodes.length) {
+    const firstNode = nodes.shift()!;
+    firstNode.children.forEach((child, index) =&amp;gt; {
+      const context = makeContext(firstNode, index);
+      enterFn(child, context);
+      exitFns.push(() =&amp;gt; exitFn(child, context));
+      nodes.push(child);
+    });
+  }
+  exitFns.reverse().forEach((fn) =&amp;gt; fn());
+
+  exitFn(ast, rootContext);
+
+  return ast;
+}
+
+function makeContext(parent: AstNode | undefined, index: number) {
+  function replaceNode(node: AstNode) {
+    if (parent) {
+      parent.children[index] = node;
+    }
+  }
+  function patchNode(node: Partial&amp;lt;AstNode&amp;gt;) {
+    if (parent) {
+      parent.children[index] = Object.assign(parent.children[index], node);
+    }
+  }
+  const context = {
+    parent: parent,
+    index,
+    replaceNode,
+    patchNode,
+  };
+  return context;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;generate&lt;/h2&gt;
+&lt;p&gt;生成阶段即为&lt;code&gt;JavaSctipt AST&lt;/code&gt; -&amp;gt; 字符串&lt;code&gt;code&lt;/code&gt;的过程&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;function generate(ast: AstJs) {
+  function gen(node: AstJs): string {
+    switch (node.type) {
+      case &quot;ReturnStatement&quot;: {
+        return handleReturnStatement(node);
+      }
+      case &quot;FunctionDeclaration&quot;: {
+        return handleFunctionDeclaration(node);
+      }
+      case &quot;CallExpression&quot;: {
+        return handleCallExpression(node);
+      }
+      case &quot;Literal&quot;: {
+        return handleLiteral(node);
+      }
+      default: {
+        return &quot;&quot;;
+      }
+    }
+  }
+  return gen(ast);
+
+  function handleFunctionDeclaration(node: AstJs) {
+    return `
+    function ${node.name}() {
+      ${node.body?.map((innerNode) =&amp;gt; gen(innerNode)).join(&quot; &quot;)}
+    }
+    `;
+  }
+
+  function handleReturnStatement(node: AstJs) {
+    return `return ${node.body
+      ?.map((innerNode) =&amp;gt; gen(innerNode))
+      .join(&quot; &quot;)}`;
+  }
+
+  function handleCallExpression(node: AstJs) {
+    return `${node.name}(${node.arguments
+      ?.map((innerNode) =&amp;gt; gen(innerNode))
+      .join(&quot;,&quot;)})`;
+  }
+
+  function handleLiteral(node: AstJs) {
+    return `&apos;${node.value}&apos;`;
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;参考资料&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https://weread.qq.com/web/bookDetail/c5c32170813ab7177g0181ae&quot;&gt;Vue.js设计与实现&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&quot;https://www.ruanyifeng.com/blog/2013/09/finite-state_machine_for_javascript.html&quot;&gt;JavaScript与有限状态机&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</content:encoded></item><item><title>单测中的代码行覆盖率是如何计算的</title><link>https://dabuside.github.io/posts/code_coverage_calculation/</link><guid isPermaLink="true">https://dabuside.github.io/posts/code_coverage_calculation/</guid><pubDate>Tue, 30 Jul 2024 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
 &lt;h2&gt;什么是代码行覆盖率&lt;/h2&gt;
 &lt;p&gt;&lt;img src=&quot;./coverage_example.png&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
 &lt;p&gt;代码覆盖（英语：Code coverage）是软件测试中的一种度量，描述程序中源代码被测试的比例和程度，所得比例称为&lt;strong&gt;代码行覆盖率&lt;/strong&gt;。&lt;/p&gt;

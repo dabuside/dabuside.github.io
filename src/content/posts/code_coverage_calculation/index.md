@@ -1,7 +1,7 @@
 ---
 title: 单测中的代码行覆盖率是如何计算的
 published: 2024-07-30
-image: ""
+image: "coverage_example.png"
 tags: ["Babel", "istanbul", "v8"]
 category: "Tech"
 draft: false

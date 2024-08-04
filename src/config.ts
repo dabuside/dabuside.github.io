@@ -15,13 +15,13 @@ export const siteConfig: SiteConfig = {
     fixed: false, // Hide the theme color picker for visitors
   },
   banner: {
-    enable: false,
-    src: 'assets/images/demo-banner.png', // Relative to the /src directory. Relative to the /public directory if it starts with '/'
+    enable: true,
+    src: 'assets/images/image.png', // Relative to the /src directory. Relative to the /public directory if it starts with '/'
     position: 'center', // Equivalent to object-position, defaults center
     credit: {
-      enable: false,
-      text: '',
-      url: '',
+      enable: true,
+      text: 'pixiv',
+      url: 'https://www.pixiv.net/en/artworks/112587817',
     },
   },
   favicon: [

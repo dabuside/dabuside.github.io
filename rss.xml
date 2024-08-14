@@ -1551,7 +1551,7 @@ function main() {
 
 main()
 &lt;/code&gt;&lt;/pre&gt;
-</content:encoded></item><item><title>从页面元素定位到源码位置</title><link>https://dabuside.github.io/posts/ext-dev-tools/</link><guid isPermaLink="true">https://dabuside.github.io/posts/ext-dev-tools/</guid><description>ext dev tools</description><pubDate>Tue, 22 Jun 2021 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
+</content:encoded></item><item><title>从页面元素定位到源码位置</title><link>https://dabuside.github.io/posts/ext_dev_tools/</link><guid isPermaLink="true">https://dabuside.github.io/posts/ext_dev_tools/</guid><description>ext dev tools</description><pubDate>Tue, 22 Jun 2021 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Contents&lt;/h2&gt;
 &lt;h2&gt;快乐划水&lt;/h2&gt;
 &lt;p&gt;今天上班划水，看到一个很有意思的文章&lt;a href=&quot;https://juejin.cn/post/6901466406823575560&quot;&gt;我点了页面上的元素，VSCode 乖乖打开了对应的组件？原理揭秘。&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;虽然&lt;code&gt;vue-dev-tools&lt;/code&gt;早就支持这个功能，但是看到这个&lt;code&gt;react&lt;/code&gt;版本的实现的细节，我才知道原理，简单概况一下&lt;/p&gt;

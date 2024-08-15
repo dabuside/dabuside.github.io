@@ -72,7 +72,7 @@ cloudproduct.moudlesA.pageA.default_policy_name = 默认策略
 下面是法语的单复数例子（以法语为代表的印欧语系中，名词的单数和复数形式的阴阳性不一样，随之修饰的冠词、形容词的阴阳性也需要保持一致）：
 
 - `你的学生有1支新铅笔。` ==> `Votre élève a un nouveau crayon.`
-- `你的学生有2支新铅笔。 ==> `Votre élève a deux nouveaux crayons.`
+- `你的学生有2支新铅笔。` ==> `Votre élève a deux nouveaux crayons.`
 
 
 复数词条必须使用一种国际通用的标准文本格式，该语法格式为 Unicode 基金会维护的 [ICU Message](https://unicode-org.github.io/icu/userguide/format_parse/messages/)，可以跨编程语言使用，其遵循 [CLDR](http://cldr.unicode.org/index) 定义的多语言复数规则。
@@ -85,14 +85,8 @@ cloudproduct.moudlesA.pageA.default_policy_name = 默认策略
 
 词条如下：
 
-```js
-{
-  locale: 'en-US',
-  timeZone: 'Asia/Shanghai',
-  messages: {
-    select: 'select {count, plural, one {one message} other {# messages}}.',
-  },
-}
+```
+select = 'select {count, plural, one {one message} other {# messages}}.',
 ```
 
 模板如下：
@@ -118,12 +112,8 @@ cloudproduct.moudlesA.pageA.default_policy_name = 默认策略
 词条如下：
 
 
-```js
-{
-  locale: 'en-US',
-  timeZone: 'Asia/Shanghai',
-  messages: {
-    fruit: `
+```
+fruit =  
       {name}, you have { numPears, plural, 
         one {one pear} 
         other {# pears}
@@ -131,9 +121,6 @@ cloudproduct.moudlesA.pageA.default_policy_name = 默认策略
         one {one apple} 
         other {# apples}
       }.
-    `,
-  },
-}
 ```
 
 模板如下：
@@ -177,8 +164,6 @@ cloudproduct.moudlesA.pageA.default_policy_name = 默认策略
 :::
 
 > Safety starts with understanding how developers collect and share your data. Data privacy and security practices may vary based on your use, region, and age. The developer provided this information and may update it over time.
-
-> 安全始于了解开发者如何收集和分享数据。数据隐私保护和安全措施可能会因您的使用情况、所在地区和用户年龄而异。此类信息由开发者提供，可能会随时间更新。
 
 如果英文符号之间没有空格，那么阅读效果会很差
 
